@@ -137,17 +137,24 @@
 
             .message-content(*ngIf='!msg.isStreaming')
                 .markdown-content([innerHTML]='msg.content | aiMarkdown')
-                .command-blocks(*ngIf='msg.role === "assistant" && extractCommands(msg.content).length > 0')
-                    .command-block(*ngFor='let cmd of extractCommands(msg.content)')
+                .command-blocks(*ngIf='msg.role === "assistant" && msg.commands?.length')
+                    .command-block(
+                        *ngFor='let cmd of msg.commands; let i = index',
+                        [class.cmd-nav]='msg.id === commandNavMessageId',
+                        [class.active]='msg.id === commandNavMessageId && i === selectedCommandIndex',
+                        [attr.tabindex]='msg.id === commandNavMessageId ? 0 : -1',
+                        (click)='selectCommand(msg.id, i)',
+                        (keydown)='onCommandKey($event, msg.id)'
+                    )
                         code {{cmd}}
                         .command-actions
                             button.btn.btn-sm.btn-outline-primary(
-                                (click)='handleInsertCommand(cmd)',
+                                (click)='handleInsertCommand(cmd); $event.stopPropagation()',
                                 title='Insert into terminal'
                             )
                                 i.fas.fa-paste
                             button.btn.btn-sm.btn-outline-success(
-                                (click)='handleExecuteCommand(cmd)',
+                                (click)='handleExecuteCommand(cmd); $event.stopPropagation()',
                                 title='Execute command'
                             )
                                 i.fas.fa-play

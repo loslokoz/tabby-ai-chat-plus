@@ -9,6 +9,13 @@ interface XtermMarker {
 }
 
 /**
+ * Prefix of the sentinel the decorator appends to commands it runs on the
+ * user's behalf so it can detect completion and read the exit code. Lines
+ * carrying it are filtered out of the captured "last command output".
+ */
+export const COMMAND_DONE_MARKER = '__AIDONE_'
+
+/**
  * Tracks where each command starts in the terminal buffer by listening to
  * xterm's `onData`, which fires ONLY for user input (keyboard / paste) and
  * never for program output.
@@ -55,6 +62,37 @@ export class CommandTrackerService {
         this.disposables.set(frontend, disposable)
     }
 
+    /**
+     * Programmatically mark the current cursor row as a command boundary.
+     * Needed before a programmatic sendInput, which bypasses xterm's onData and
+     * therefore would not otherwise be tracked.
+     */
+    recordCommandAt (frontend: Frontend): void {
+        const { xterm } = (frontend as any)
+        if (!xterm || !this.tracked.has(frontend)) { return }
+        const buf = xterm.buffer.active
+        if (buf.type === 'alternate') { return }
+        this.markers.get(frontend)?.dispose()
+        const marker: XtermMarker | undefined = xterm.registerMarker(0)
+        if (marker) {
+            this.markers.set(frontend, marker)
+        } else {
+            this.markers.delete(frontend)
+        }
+    }
+
+    /**
+     * Build the payload to run a command on the user's behalf: the command plus
+     * a completion sentinel that also reports the exit code. Returns the text to
+     * send (newline included) and the marker to watch for in the output stream.
+     * The sentinel shape is mirrored by the cleanup in getLastCommandOutput.
+     */
+    buildWrappedCommand (command: string): { payload: string; marker: string } {
+        const id = Math.random().toString(36).slice(2, 8)
+        const marker = `${COMMAND_DONE_MARKER}${id}`
+        return { payload: `${command}; printf '\\n${marker}:%s\\n' "$?"\n`, marker }
+    }
+
     detach (frontend: Frontend): void {
         this.markers.get(frontend)?.dispose()
         this.markers.delete(frontend)
@@ -95,7 +133,11 @@ export class CommandTrackerService {
         const lines: string[] = []
         for (let i = start; i < end; i++) {
             const line = buffer.getLine(i)
-            if (line) { lines.push(line.translateToString(true)) }
+            if (!line) { continue }
+            const text = line.translateToString(true)
+            // Drop the completion-sentinel line injected for programmatic runs.
+            if (text.includes(COMMAND_DONE_MARKER)) { continue }
+            lines.push(text)
         }
 
         while (lines.length > 0 && !lines[lines.length - 1].trim()) {

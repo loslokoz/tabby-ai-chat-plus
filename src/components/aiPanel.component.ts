@@ -14,6 +14,7 @@ interface ChatMessage {
     timestamp: Date
     isStreaming?: boolean
     attachedContext?: string
+    commands?: string[]
 }
 
 @Component({
@@ -37,6 +38,10 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     isLoading = false
     currentStreamingContent = ''
     currentStreamingId = ''
+
+    // Keyboard navigation over the generated commands of one assistant message
+    commandNavMessageId = ''
+    selectedCommandIndex = 0
 
     // Context options
     contextMode: ContextMode = 'none'
@@ -348,10 +353,12 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         // Finalize message
         assistantMsg.content = this.currentStreamingContent
         assistantMsg.isStreaming = false
+        assistantMsg.commands = this.extractCommands(assistantMsg.content)
         this.currentStreamingId = ''
         this.currentStreamingContent = ''
         this.isLoading = false
         this.cdr.detectChanges()
+        this.activateCommandNav(assistantMsg)
     }
 
     cancelRequest (): void {
@@ -420,6 +427,15 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         }
     }
 
+    /**
+     * Called by the decorator once a command executed from the chat has
+     * finished: switch the context to the freshly produced output and refresh.
+     */
+    showLastCommandOutput (): void {
+        this.setContextMode('lastCommand')
+        this.cdr.detectChanges()
+    }
+
     // Context management
     setContextMode (mode: ContextMode): void {
         this.contextMode = mode
@@ -468,6 +484,69 @@ export class AIPanelComponent implements OnInit, OnDestroy {
 
     refreshContext (): void {
         this.updateAttachedContext()
+    }
+
+    // Command navigation - lets the user move across the commands generated in
+    // the latest assistant message with the arrow keys and run one with Enter.
+    private activateCommandNav (msg: ChatMessage): void {
+        if (msg.role !== 'assistant' || !msg.commands?.length) {
+            this.focusInput()
+            return
+        }
+        this.commandNavMessageId = msg.id
+        this.selectedCommandIndex = 0
+        this.focusCommand(0)
+    }
+
+    selectCommand (msgId: string, index: number): void {
+        this.commandNavMessageId = msgId
+        this.selectedCommandIndex = index
+    }
+
+    onCommandKey (event: KeyboardEvent, msgId: string): void {
+        event.stopPropagation()
+        const msg = this.messages.find(m => m.id === msgId)
+        const count = msg?.commands?.length ?? 0
+        if (count === 0) { return }
+
+        switch (event.key) {
+            case 'ArrowDown':
+            case 'ArrowRight':
+                event.preventDefault()
+                this.selectedCommandIndex = (this.selectedCommandIndex + 1) % count
+                this.focusCommand(this.selectedCommandIndex)
+                break
+            case 'ArrowUp':
+            case 'ArrowLeft':
+                event.preventDefault()
+                this.selectedCommandIndex = (this.selectedCommandIndex - 1 + count) % count
+                this.focusCommand(this.selectedCommandIndex)
+                break
+            case 'Enter':
+                event.preventDefault()
+                this.handleExecuteCommand(msg!.commands![this.selectedCommandIndex])
+                break
+            case 'Escape':
+                event.preventDefault()
+                this.focusInput()
+                break
+            default:
+                break
+        }
+    }
+
+    private focusCommand (index: number): void {
+        this.cdr.detectChanges()
+        setTimeout(() => {
+            const blocks = Array.from(
+                this.hostRef.nativeElement.querySelectorAll('.command-block.cmd-nav') as NodeListOf<HTMLElement>,
+            )
+            const el = blocks.at(index)
+            if (el) {
+                el.focus()
+                el.scrollIntoView({ block: 'nearest' })
+            }
+        }, 0)
     }
 
     // Command handling

@@ -1,9 +1,9 @@
 import { Injectable, ComponentRef, Injector, ApplicationRef, createComponent, EnvironmentInjector } from '@angular/core'
-import { take } from 'rxjs'
+import { take, Subscription } from 'rxjs'
 import { HotkeysService, ConfigService } from 'tabby-core'
 import { TerminalDecorator, BaseTerminalTabComponent } from 'tabby-terminal'
 import { AIPanelComponent } from '../components/aiPanel.component'
-import { CommandTrackerService } from '../services/commandTracker.service'
+import { CommandTrackerService, COMMAND_DONE_MARKER } from '../services/commandTracker.service'
 
 /**
  * Decorator that attaches the AI Assistant panel to terminal tabs.
@@ -14,6 +14,7 @@ export class AIAssistantDecorator extends TerminalDecorator {
     private panelRefs = new Map<BaseTerminalTabComponent<any>, ComponentRef<AIPanelComponent>>()
     private panelVisible = new Map<BaseTerminalTabComponent<any>, boolean>()
     private origXtermFocus = new Map<BaseTerminalTabComponent<any>, () => void>()
+    private commandWatchers = new Map<BaseTerminalTabComponent<any>, Subscription>()
 
     constructor (
         private hotkeys: HotkeysService,
@@ -60,6 +61,8 @@ export class AIAssistantDecorator extends TerminalDecorator {
     }
 
     detach (terminal: BaseTerminalTabComponent<any>): void {
+        this.commandWatchers.get(terminal)?.unsubscribe()
+        this.commandWatchers.delete(terminal)
         if (terminal.frontend) {
             this.commandTracker.detach(terminal.frontend)
         }
@@ -226,8 +229,41 @@ export class AIAssistantDecorator extends TerminalDecorator {
     }
 
     private executeCommandInTerminal (terminal: BaseTerminalTabComponent<any>, command: string): void {
-        // Execute command (add newline to run it)
-        terminal.sendInput(command + '\n')
-        terminal.frontend?.focus()
+        if (!terminal.frontend) {
+            terminal.sendInput(command + '\n')
+            return
+        }
+
+        // Cancel any previous, still-pending watcher for this terminal.
+        this.commandWatchers.get(terminal)?.unsubscribe()
+        this.commandWatchers.delete(terminal)
+
+        // Mark the boundary so the tracker captures this run (sendInput bypasses
+        // xterm's onData), then run the command with a completion sentinel that
+        // also reports the exit code.
+        this.commandTracker.recordCommandAt(terminal.frontend)
+
+        const id = Math.random().toString(36).slice(2, 8)
+        const marker = `${COMMAND_DONE_MARKER}${id}`
+        const donePattern = new RegExp(`${marker}:(\\d+)`)
+
+        let acc = ''
+        const sub = terminal.output$.subscribe((chunk: string) => {
+            acc += chunk
+            const match = donePattern.exec(acc)
+            if (!match) { return }
+
+            sub.unsubscribe()
+            this.commandWatchers.delete(terminal)
+
+            // Command finished (exit code in match[1]); surface its output in
+            // the panel and hand focus back to the chat input.
+            const panelRef = this.panelRefs.get(terminal)
+            panelRef?.instance.showLastCommandOutput()
+            this.focusChatInput(terminal)
+        })
+        this.commandWatchers.set(terminal, sub)
+
+        terminal.sendInput(`${command}; printf '\\n${marker}:%s\\n' "$?"\n`)
     }
 }
