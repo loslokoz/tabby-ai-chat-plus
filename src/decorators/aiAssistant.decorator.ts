@@ -3,7 +3,7 @@ import { take, Subscription } from 'rxjs'
 import { HotkeysService, ConfigService } from 'tabby-core'
 import { TerminalDecorator, BaseTerminalTabComponent } from 'tabby-terminal'
 import { AIPanelComponent } from '../components/aiPanel.component'
-import { CommandTrackerService, COMMAND_DONE_MARKER } from '../services/commandTracker.service'
+import { CommandTrackerService } from '../services/commandTracker.service'
 
 /**
  * Decorator that attaches the AI Assistant panel to terminal tabs.
@@ -243,8 +243,7 @@ export class AIAssistantDecorator extends TerminalDecorator {
         // also reports the exit code.
         this.commandTracker.recordCommandAt(terminal.frontend)
 
-        const id = Math.random().toString(36).slice(2, 8)
-        const marker = `${COMMAND_DONE_MARKER}${id}`
+        const { payload, marker } = this.commandTracker.buildWrappedCommand(command)
         const donePattern = new RegExp(`${marker}:(\\d+)`)
 
         let acc = ''
@@ -264,6 +263,6 @@ export class AIAssistantDecorator extends TerminalDecorator {
         })
         this.commandWatchers.set(terminal, sub)
 
-        terminal.sendInput(`${command}; printf '\\n${marker}:%s\\n' "$?"\n`)
+        terminal.sendInput(payload)
     }
 }

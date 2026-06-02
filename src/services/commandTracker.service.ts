@@ -130,13 +130,23 @@ export class CommandTrackerService {
         const end = buffer.baseY + buffer.cursorY
         if (start >= end) { return '' }
 
+        // Patterns mirroring buildWrappedCommand: hide the injected wrapper from
+        // the captured context while keeping the real command and its output.
+        const sentinelLine = new RegExp(`^\\s*${COMMAND_DONE_MARKER}\\w+:\\d+\\s*$`)
+        const wrapperSuffix = new RegExp(`;\\s*printf\\b.*${COMMAND_DONE_MARKER}\\w+.*$`)
+
         const lines: string[] = []
         for (let i = start; i < end; i++) {
             const line = buffer.getLine(i)
             if (!line) { continue }
-            const text = line.translateToString(true)
-            // Drop the completion-sentinel line injected for programmatic runs.
-            if (text.includes(COMMAND_DONE_MARKER)) { continue }
+            let text = line.translateToString(true)
+            if (text.includes(COMMAND_DONE_MARKER)) {
+                // Drop the standalone sentinel output line entirely.
+                if (sentinelLine.test(text)) { continue }
+                // Strip the injected "; printf ... $?" suffix from the command echo.
+                text = text.replace(wrapperSuffix, '').trimEnd()
+                if (!text) { continue }
+            }
             lines.push(text)
         }
 
