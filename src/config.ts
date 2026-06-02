@@ -23,6 +23,11 @@ export interface AIAssistantConfig {
     // UI
     panelWidthPercent: number
     showTimestamps: boolean
+    chatFontSize: number
+
+    // Quick access models
+    quickModels: string[]
+    useQuickModelsOnly: boolean
 
     // Advanced
     maxTokens: number
@@ -53,6 +58,11 @@ export class AIAssistantConfigProvider extends ConfigProvider {
             // UI
             panelWidthPercent: 40,
             showTimestamps: false,
+            chatFontSize: 14,
+
+            // Quick access models
+            quickModels: [],
+            useQuickModelsOnly: false,
 
             // Advanced
             maxTokens: 2048,
@@ -71,6 +81,7 @@ Be concise and focused on solving terminal-related problems efficiently.`,
         },
         hotkeys: {
             'toggle-ai-panel': ['Ctrl-Shift-A'],
+            'focus-ai-input': ['Ctrl-`'],
         },
     }
 
@@ -78,6 +89,7 @@ Be concise and focused on solving terminal-related problems efficiently.`,
         [Platform.macOS]: {
             hotkeys: {
                 'toggle-ai-panel': ['Cmd-Shift-A'],
+                'focus-ai-input': ['Ctrl-`'],
             },
         },
     }

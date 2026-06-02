@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core'
 import { ConfigService } from 'tabby-core'
 import { Subject, Observable } from 'rxjs'
+import { ModelProviderService } from './modelProvider.service'
 
 export interface ChatMessage {
     id: string
@@ -33,7 +34,10 @@ export class AIAssistantService {
     private streamSubject = new Subject<StreamingChunk>()
     private conversationHistory: ChatMessage[] = []
 
-    constructor (private config: ConfigService) {}
+    constructor (
+        private config: ConfigService,
+        private modelProvider: ModelProviderService,
+    ) {}
 
     get stream$ (): Observable<StreamingChunk> {
         return this.streamSubject.asObservable()
@@ -156,16 +160,16 @@ export class AIAssistantService {
             signal?: AbortSignal
         },
     ): Promise<string> {
-        const aiConfig = this.config.store.aiAssistant
+        const apiKey = this.modelProvider.getApiKey()
 
-        if (!aiConfig.apiKey) {
+        if (!apiKey) {
             throw new Error('API key not configured. Please set your API key in Settings > AI Assistant.')
         }
 
-        const endpoint = aiConfig.apiEndpoint.replace(/\/+$/, '') + '/chat/completions'
+        const endpoint = this.modelProvider.getEndpoint().replace(/\/+$/, '') + '/chat/completions'
 
         const body = {
-            model: aiConfig.model,
+            model: this.modelProvider.currentModel,
             messages,
             max_tokens: options.maxTokens,
             temperature: options.temperature,
@@ -176,7 +180,7 @@ export class AIAssistantService {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${aiConfig.apiKey}`,
+                Authorization: `Bearer ${apiKey}`,
                 'HTTP-Referer': 'https://github.com/Eugeny/tabby',
                 'X-Title': 'Tabby Terminal AI Assistant',
             },
@@ -289,18 +293,18 @@ export class AIAssistantService {
      * Check if the API is configured and reachable
      */
     async testConnection (): Promise<{ success: boolean; message: string }> {
-        const aiConfig = this.config.store.aiAssistant
+        const apiKey = this.modelProvider.getApiKey()
 
-        if (!aiConfig.apiKey) {
+        if (!apiKey) {
             return { success: false, message: 'API key not configured' }
         }
 
         try {
-            const endpoint = aiConfig.apiEndpoint.replace(/\/+$/, '') + '/models'
+            const endpoint = this.modelProvider.getEndpoint().replace(/\/+$/, '') + '/models'
             const response = await fetch(endpoint, {
                 method: 'GET',
                 headers: {
-                    Authorization: `Bearer ${aiConfig.apiKey}`,
+                    Authorization: `Bearer ${apiKey}`,
                 },
             })
 

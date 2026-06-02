@@ -121,6 +121,63 @@ h3 AI Assistant
                     i.fas.fa-sync-alt.me-1([class.fa-spin]='isLoadingLitellmModels')
                     | Fetch Models
 
+// Quick Access Models
+h4.mt-4.mb-3 Quick Access Models
+
+.form-line
+    .header
+        .title Use quick access only
+        .description Show only quick access models in the chat panel instead of the full model picker
+    toggle(
+        [(ngModel)]='config.store.aiAssistant.useQuickModelsOnly',
+        (ngModelChange)='config.save()'
+    )
+
+.form-line
+    .header
+        .title Quick access models
+        .description Models available for quick switching in the chat panel
+
+    .quick-models-list.mb-3(*ngIf='quickModels.length > 0')
+        .quick-model-item(*ngFor='let modelId of quickModels')
+            span.model-id-text {{modelId}}
+            button.btn.btn-sm.btn-link.text-danger.ms-auto(
+                (click)='removeQuickModel(modelId)',
+                title='Remove'
+            )
+                i.fas.fa-times
+
+    .add-quick-model
+        .d-flex.gap-2.mb-2
+            input.form-control(
+                type='text',
+                [(ngModel)]='customModelInput',
+                placeholder='Enter model ID manually...',
+                (keydown.enter)='addQuickModel(customModelInput)'
+            )
+            button.btn.btn-outline-primary(
+                (click)='addQuickModel(customModelInput)',
+                [disabled]='!customModelInput.trim()'
+            )
+                i.fas.fa-plus.me-1
+                | Add
+
+        .mt-2(*ngIf='(openRouterModels.length > 0 || litellmModels.length > 0)')
+            input.form-control.mb-2(
+                type='text',
+                [(ngModel)]='quickModelSearchTerm',
+                placeholder='Search available models to add...'
+            )
+            .model-list-container(*ngIf='quickModelSearchTerm')
+                .model-option(
+                    *ngFor='let model of availableModelsForQuick',
+                    (click)='addQuickModel(model.id)'
+                )
+                    .model-name {{model.name}}
+                    .model-id {{model.id}}
+                .text-muted.text-center.py-2(*ngIf='availableModelsForQuick.length === 0')
+                    | No models found
+
 // Advanced Settings
 h4.mt-4.mb-3 Advanced Settings
 
@@ -174,6 +231,21 @@ h4.mt-4.mb-3 Advanced Settings
         option(value='insert') Insert into terminal
         option(value='execute') Execute immediately
         option(value='ask') Ask before executing
+
+.form-line
+    .header
+        .title Chat Font Size
+        .description Font size of messages in the chat panel (px)
+    .d-flex.align-items-center.gap-2
+        input.form-range.flex-grow-1(
+            type='range',
+            [(ngModel)]='config.store.aiAssistant.chatFontSize',
+            (ngModelChange)='config.save()',
+            min='10',
+            max='22',
+            step='1'
+        )
+        span.text-muted {{config.store.aiAssistant.chatFontSize}}px
 
 .form-line
     .header

@@ -1,3 +1,6 @@
+.resize-handle(
+    (mousedown)='onResizeStart($event)'
+)
 .ai-panel-container(
     (click)='$event.stopPropagation()',
     (mousedown)='$event.stopPropagation()',
@@ -123,13 +126,13 @@
                 i.fas.fa-times
         pre.preview-content {{attachedContext}}
 
-    .messages(#messagesContainer)
+    .messages(#messagesContainer, [style.fontSize.px]='config.store.aiAssistant?.chatFontSize ?? 14')
         .message(*ngFor='let msg of messages', [class]='msg.role')
             .message-header
                 .role
                     i.fas.fa-user(*ngIf='msg.role === "user"')
                     i.fas.fa-robot(*ngIf='msg.role === "assistant"')
-                    span.ms-2 {{msg.role === 'user' ? 'You' : 'Assistant'}}
+                    span.ms-2 {{msg.role === 'user' ? 'DevOps' : 'Terminal'}}
                 .timestamp.text-muted.small {{msg.timestamp | date:'HH:mm'}}
 
             .message-content(*ngIf='!msg.isStreaming')
@@ -159,16 +162,6 @@
         .empty-state(*ngIf='messages.length === 0')
             i.fas.fa-comments.fa-3x.text-muted.mb-3
             p.text-muted Ask me anything about your terminal session
-            .suggestions
-                button.btn.btn-outline-secondary.btn-sm.m-1(
-                    (click)='setInputAndFocus("Explain the last command")'
-                ) Explain the last command
-                button.btn.btn-outline-secondary.btn-sm.m-1(
-                    (click)='setInputAndFocus("How do I...")'
-                ) How do I...
-                button.btn.btn-outline-secondary.btn-sm.m-1(
-                    (click)='setInputAndFocus("Fix this error")'
-                ) Fix this error
 
     .input-area
         .loading-indicator(*ngIf='isLoading')
@@ -183,7 +176,7 @@
             (keyup)='$event.stopPropagation()',
             (keypress)='$event.stopPropagation()',
             (focus)='onInputFocus()',
-            placeholder='Ask about your terminal...',
+            placeholder='Ask your terminal...',
             rows='2',
             [disabled]='isLoading'
         )

@@ -20,6 +20,10 @@ export class AISettingsTabComponent implements OnInit {
     openRouterSearchTerm = ''
     litellmSearchTerm = ''
 
+    // Quick access models
+    quickModelSearchTerm = ''
+    customModelInput = ''
+
     constructor (
         public config: ConfigService,
         private modelProvider: ModelProviderService,
@@ -115,5 +119,34 @@ export class AISettingsTabComponent implements OnInit {
     testConnection (): void {
         // TODO: Implement connection test
         console.log('Testing connection...')
+    }
+
+    get quickModels (): string[] {
+        return this.config.store.aiAssistant?.quickModels ?? []
+    }
+
+    get availableModelsForQuick (): ModelInfo[] {
+        const all = this.currentProvider === 'openrouter'
+            ? this.openRouterModels
+            : this.litellmModels
+        const term = this.quickModelSearchTerm.toLowerCase()
+        return all
+            .filter(m => !this.quickModels.includes(m.id))
+            .filter(m => !term || m.id.toLowerCase().includes(term) || m.name.toLowerCase().includes(term))
+            .slice(0, 50)
+    }
+
+    addQuickModel (modelId: string): void {
+        const id = modelId.trim()
+        if (!id || this.quickModels.includes(id)) { return }
+        this.config.store.aiAssistant.quickModels = [...this.quickModels, id]
+        this.config.save()
+        this.customModelInput = ''
+    }
+
+    removeQuickModel (modelId: string): void {
+        this.config.store.aiAssistant.quickModels =
+            this.quickModels.filter(id => id !== modelId)
+        this.config.save()
     }
 }

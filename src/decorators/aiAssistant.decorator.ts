@@ -11,6 +11,7 @@ import { AIPanelComponent } from '../components/aiPanel.component'
 export class AIAssistantDecorator extends TerminalDecorator {
     private panelRefs = new Map<BaseTerminalTabComponent<any>, ComponentRef<AIPanelComponent>>()
     private panelVisible = new Map<BaseTerminalTabComponent<any>, boolean>()
+    private origXtermFocus = new Map<BaseTerminalTabComponent<any>, () => void>()
 
     constructor (
         private hotkeys: HotkeysService,
@@ -29,6 +30,10 @@ export class AIAssistantDecorator extends TerminalDecorator {
             this.hotkeys.hotkey$.subscribe(hotkey => {
                 if (hotkey === 'toggle-ai-panel' && terminal.hasFocus) {
                     this.togglePanel(terminal)
+                }
+
+                if (hotkey === 'focus-ai-input' && this.panelVisible.get(terminal)) {
+                    this.focusChatInput(terminal)
                 }
             }),
         )
@@ -57,6 +62,7 @@ export class AIAssistantDecorator extends TerminalDecorator {
             ref.location.nativeElement.style.display = 'flex'
             this.panelVisible.set(terminal, true)
             this.updateTerminalLayout(terminal, true)
+            this.focusChatInput(terminal)
             return
         }
 
@@ -80,6 +86,13 @@ export class AIAssistantDecorator extends TerminalDecorator {
 
         panelRef.instance.executeCommand.subscribe((cmd: string) => {
             this.executeCommandInTerminal(terminal, cmd)
+        })
+
+        panelRef.instance.widthChanged.subscribe((widthPercent: number) => {
+            const contentEl = terminal.element.nativeElement.querySelector('.content') as HTMLElement | null
+            if (contentEl) {
+                contentEl.style.width = `${100 - widthPercent}%`
+            }
         })
 
         // Attach to the terminal's host element
@@ -112,6 +125,7 @@ export class AIAssistantDecorator extends TerminalDecorator {
 
         // Detect changes
         panelRef.changeDetectorRef.detectChanges()
+        this.focusChatInput(terminal)
     }
 
     private hidePanel (terminal: BaseTerminalTabComponent<any>): void {
@@ -155,6 +169,31 @@ export class AIAssistantDecorator extends TerminalDecorator {
                 frontend.resizeHandler()
             }
         }, 100)
+    }
+
+    private focusChatInput (terminal: BaseTerminalTabComponent<any>): void {
+        setTimeout(() => {
+            const xtermTextarea = terminal.element.nativeElement
+                .querySelector('.xterm-helper-textarea') as HTMLElement | null
+            if (xtermTextarea) {
+                const orig = xtermTextarea.focus.bind(xtermTextarea)
+                this.origXtermFocus.set(terminal, orig)
+                xtermTextarea.focus = () => { /* blocked while panel is open */ }
+            }
+            const panelRef = this.panelRefs.get(terminal)
+            const chatInput = panelRef?.location.nativeElement
+                .querySelector('textarea') as HTMLElement | null
+            chatInput?.focus()
+            if (xtermTextarea) {
+                setTimeout(() => {
+                    const orig = this.origXtermFocus.get(terminal)
+                    if (orig) {
+                        xtermTextarea.focus = orig
+                        this.origXtermFocus.delete(terminal)
+                    }
+                }, 100)
+            }
+        }, 150)
     }
 
     private insertCommandIntoTerminal (terminal: BaseTerminalTabComponent<any>, command: string): void {

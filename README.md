@@ -4,12 +4,12 @@ AI Assistant plugin for [Tabby](https://tabby.sh) - Chat with AI while accessing
 
 ## Features
 
-- **AI Chat Panel** - Integrated chat interface in terminal tabs
-- **Terminal Context** - Automatically capture and send terminal output as context
+- **AI Chat Panel** - Integrated chat interface in terminal tabs, resizable by dragging the left edge
+- **Terminal Context** - Capture and attach terminal output as context to your messages
 - **Multiple Providers** - Support for OpenRouter and LiteLLM/custom endpoints
-- **Model Selection** - Browse and search available models
+- **Quick Access Models** - Pin favourite models for fast switching in the chat panel
 - **Code Actions** - Copy code blocks or execute commands directly in terminal
-- **Customizable** - Adjust panel width, temperature, token limits, and more
+- **Customizable** - Adjust panel width, font size, temperature, token limits, and more
 
 ## Installation
 
@@ -55,34 +55,44 @@ After installation, go to **Settings** > **AI Assistant** to configure:
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Provider | OpenRouter or LiteLLM | OpenRouter |
-| Max Tokens | Maximum response length | 4096 |
+| Max Tokens | Maximum response length | 2048 |
 | Temperature | Response randomness (0-1) | 0.7 |
-| Context Lines | Terminal lines to capture | 100 |
+| Context Lines | Terminal lines to capture | 50 |
 | Command Execution | insert / execute / ask | insert |
-| Panel Width | Percentage of terminal width | 35% |
-| Auto-attach Context | Capture context when opening | true |
+| Chat Font Size | Message font size in px | 14 |
+| Panel Width | Percentage of terminal width | 40% |
+| Quick Access Models | Pinned models for fast switching | — |
+| Use Quick Access Only | Restrict model picker to pinned models | off |
 
 ## Usage
 
 ### Keyboard Shortcuts
 
-| Action | Default Shortcut |
-|--------|------------------|
-| Toggle AI Panel | `Ctrl+Shift+A` |
-| Focus AI Input | `Ctrl+Shift+I` |
+| Action | Default (Linux/Windows) | Default (macOS) |
+|--------|-------------------------|-----------------|
+| Toggle AI Panel | `Ctrl+Shift+A` | `Cmd+Shift+A` |
+| Focus AI Input | `Ctrl+\`` | `Ctrl+\`` |
 
 ### Chat Interface
 
-1. Open the AI panel with `Ctrl+Shift+A`
+1. Open the AI panel with `Ctrl+Shift+A` (macOS: `Cmd+Shift+A`)
 2. Type your question or request
-3. Click the attachment icon to include terminal context
+3. Optionally attach terminal context using the attachment icon or with `Alt+1`–`Alt+4`:
+   - `Alt+1` — visible terminal content
+   - `Alt+2` — last N lines
+   - `Alt+3` — last command and its output
+   - `Alt+4` — current selection
 4. Press Enter or click Send
+
+### Panel Width
+
+Drag the left edge of the panel to resize it. The new width is saved automatically.
 
 ### Code Blocks
 
 AI responses with code blocks include:
-- **Copy** button - Copy code to clipboard
-- **Execute** button - Run command in terminal (behavior based on settings)
+- **Copy** button — copy code to clipboard
+- **Execute** button — run command in terminal (behaviour depends on the *Command Execution* setting; `ask` mode shows a confirmation dialog)
 
 ## Development
 

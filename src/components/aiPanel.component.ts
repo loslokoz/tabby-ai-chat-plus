@@ -26,6 +26,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     @Output() closed = new EventEmitter<void>()
     @Output() insertCommand = new EventEmitter<string>()
     @Output() executeCommand = new EventEmitter<string>()
+    @Output() widthChanged = new EventEmitter<number>()
 
     @ViewChild('messageInput') messageInput!: ElementRef<HTMLTextAreaElement>
     @ViewChild('messagesContainer') messagesContainer!: ElementRef<HTMLDivElement>
@@ -50,12 +51,17 @@ export class AIPanelComponent implements OnInit, OnDestroy {
 
     private subscriptions: Subscription[] = []
     private abortController: AbortController | null = null
+    private resizeStartX = 0
+    private resizeStartWidth = 0
+    private resizeMoveHandler: ((e: MouseEvent) => void) | null = null
+    private resizeUpHandler: ((e: MouseEvent) => void) | null = null
 
     constructor (
         private contextService: TerminalContextService,
-        private config: ConfigService,
+        public config: ConfigService,
         private cdr: ChangeDetectorRef,
         public modelProvider: ModelProviderService,
+        private hostRef: ElementRef,
     ) {}
 
     ngOnInit (): void {
@@ -92,11 +98,20 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     }
 
     get filteredModels (): ModelInfo[] {
+        const useQuickOnly = this.config.store.aiAssistant?.useQuickModelsOnly ?? false
+        const quickIds: string[] = this.config.store.aiAssistant?.quickModels ?? []
+
+        let source = this.availableModels
+        if (useQuickOnly && quickIds.length > 0) {
+            source = quickIds
+                .map(id => this.availableModels.find(m => m.id === id) ?? { id, name: id })
+        }
+
         if (!this.modelSearchTerm) {
-            return this.availableModels.slice(0, 50) // Limit initial display
+            return source.slice(0, 50)
         }
         const term = this.modelSearchTerm.toLowerCase()
-        return this.availableModels.filter(m =>
+        return source.filter(m =>
             m.id.toLowerCase().includes(term) ||
             m.name.toLowerCase().includes(term),
         ).slice(0, 50)
@@ -118,6 +133,48 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     ngOnDestroy (): void {
         this.subscriptions.forEach(s => s.unsubscribe())
         this.cancelRequest()
+        this.cleanupResizeListeners()
+    }
+
+    onResizeStart (event: MouseEvent): void {
+        event.preventDefault()
+        event.stopPropagation()
+
+        const hostEl = this.hostRef.nativeElement as HTMLElement
+        const parentWidth = hostEl.parentElement?.offsetWidth ?? 0
+        if (!parentWidth) { return }
+
+        this.resizeStartX = event.clientX
+        this.resizeStartWidth = hostEl.offsetWidth / parentWidth * 100
+
+        this.resizeMoveHandler = (e: MouseEvent) => {
+            const delta = this.resizeStartX - e.clientX
+            const newWidth = Math.min(70, Math.max(15, this.resizeStartWidth + delta / parentWidth * 100))
+            hostEl.style.width = `${newWidth}%`
+            this.widthChanged.emit(newWidth)
+        }
+
+        this.resizeUpHandler = (e: MouseEvent) => {
+            const delta = this.resizeStartX - e.clientX
+            const newWidth = Math.min(70, Math.max(15, this.resizeStartWidth + delta / parentWidth * 100))
+            this.config.store.aiAssistant.panelWidthPercent = Math.round(newWidth)
+            this.config.save()
+            this.cleanupResizeListeners()
+        }
+
+        document.addEventListener('mousemove', this.resizeMoveHandler)
+        document.addEventListener('mouseup', this.resizeUpHandler)
+    }
+
+    private cleanupResizeListeners (): void {
+        if (this.resizeMoveHandler) {
+            document.removeEventListener('mousemove', this.resizeMoveHandler)
+            this.resizeMoveHandler = null
+        }
+        if (this.resizeUpHandler) {
+            document.removeEventListener('mouseup', this.resizeUpHandler)
+            this.resizeUpHandler = null
+        }
     }
 
     close (): void {
@@ -162,7 +219,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         try {
             this.abortController = new AbortController()
 
-            await this.makeStreamingRequest(text, assistantMsg)
+            await this.makeStreamingRequest(assistantMsg)
 
         } catch (error) {
             if ((error as Error).name !== 'AbortError') {
@@ -184,7 +241,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         }
     }
 
-    private async makeStreamingRequest (userMessage: string, assistantMsg: ChatMessage): Promise<void> {
+    private async makeStreamingRequest (assistantMsg: ChatMessage): Promise<void> {
         const aiConfig = this.config.store.aiAssistant
         const apiKey = this.modelProvider.getApiKey()
 
@@ -277,6 +334,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
                             assistantMsg.content = this.currentStreamingContent
                             this.cdr.detectChanges()
                             this.scrollToBottom()
+                            await new Promise(resolve => setTimeout(resolve, 0))
                         }
                     } catch {
                         // Skip malformed JSON chunks
@@ -341,6 +399,23 @@ export class AIPanelComponent implements OnInit, OnDestroy {
                 this.cancelRequest()
             } else {
                 this.close()
+            }
+        }
+
+        // Option+` / 1..5 — switch context mode (event.code — Option changes event.key on macOS)
+        if (event.altKey) {
+            const contextByCode: Partial<Record<string, ContextMode>> = {
+                IntlBackslash: 'none',
+                Digit1: 'visible',
+                Digit2: 'lastN',
+                Digit3: 'lastCommand',
+                Digit4: 'selection',
+            }
+            const mode = contextByCode[event.code]
+            if (mode) {
+                event.preventDefault()
+                this.setContextMode(mode)
+                this.cdr.detectChanges()
             }
         }
     }
@@ -408,9 +483,9 @@ export class AIPanelComponent implements OnInit, OnDestroy {
                 this.executeCommand.emit(command)
                 break
             case 'ask':
-                // Could show a confirmation dialog here
-                // For now, just insert
-                this.insertCommand.emit(command)
+                if (window.confirm(`Execute command?\n\n${command}`)) {
+                    this.executeCommand.emit(command)
+                }
                 break
             case 'insert':
             default:
@@ -435,13 +510,10 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         return commands
     }
 
-    setInputAndFocus (text: string): void {
-        this.inputText = text
-        this.focusInput()
-    }
 
     onInputFocus (): void {
-        // Ensure the input maintains focus
+        this.updateAttachedContext()
+        this.cdr.detectChanges()
     }
 
     focusInput (): void {
