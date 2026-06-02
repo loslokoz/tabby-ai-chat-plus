@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core'
 import { Frontend } from 'tabby-terminal'
+import { CommandTrackerService } from './commandTracker.service'
 
 export interface TerminalContext {
     content: string
@@ -15,6 +16,8 @@ export interface TerminalContext {
  */
 @Injectable({ providedIn: 'root' })
 export class TerminalContextService {
+    constructor (private commandTracker: CommandTrackerService) {}
+
     /**
      * Get the last N lines from the terminal buffer
      */
@@ -97,101 +100,29 @@ export class TerminalContextService {
     }
 
     /**
-     * Get content around the cursor - attempts to capture the last command and its output.
-     * This is a heuristic approach that looks for common shell prompt patterns.
+     * Get the last command and its output.
+     *
+     * Uses CommandTrackerService, which marks command boundaries from keyboard
+     * input - fully independent of the output's content. If the frontend isn't
+     * tracked yet (panel opened before tracking started), it starts tracking now
+     * and returns an empty context rather than guessing from prompt patterns.
      */
-    getLastCommandContext (frontend: Frontend, maxLines = 100): TerminalContext | null {
+    getLastCommandContext (frontend: Frontend): TerminalContext | null {
+        let tracked = this.commandTracker.getLastCommandOutput(frontend)
+        if (tracked === null) {
+            // Backstop: ensure this frontend is tracked from now on.
+            this.commandTracker.attach(frontend)
+            tracked = this.commandTracker.getLastCommandOutput(frontend) ?? ''
+        }
+
         const xterm = this.getXterm(frontend)
-        if (!xterm) {
-            return null
-        }
-
-        const buffer = xterm.buffer.active
-        const lines: string[] = []
-
-        // Get last N lines and try to find the start of the last command
-        const totalRows = buffer.baseY + buffer.cursorY + 1
-        const startRow = Math.max(0, totalRows - maxLines)
-
-        // Collect all lines first
-        for (let i = startRow; i < totalRows; i++) {
-            const line = buffer.getLine(i)
-            if (line) {
-                lines.push(line.translateToString(true))
-            }
-        }
-
-        // Common prompt patterns to detect command start
-        // These match the END of a prompt line (before the command)
-        const promptPatterns = [
-            /[$#>%]\s*$/,           // Common shell prompts
-            /\)\s*[$#>%]\s*$/,      // Prompts with parentheses (git branch, etc.)
-            /\]\s*[$#>%]\s*$/,      // Prompts with brackets
-            /❯\s*$/,                // Fish/Starship prompt
-            /➜\s*$/,                // Oh-my-zsh prompt
-            /PS[^>]*>\s*$/i,        // PowerShell prompt
-            />\s*$/,                // Simple > prompt (cmd.exe, etc.)
-        ]
-
-        // Also match prompts that have a command on the same line
-        // e.g., "user@host:~$ ls -la" - the prompt + command on one line
-        const promptWithCommandPatterns = [
-            /[$#>%]\s+\S/,          // Prompt followed by command
-            /❯\s+\S/,
-            /➜\s+\S/,
-            /PS[^>]*>\s+\S/i,
-        ]
-
-        // Find the last line that looks like it has a prompt with a command
-        // Work backwards from the second-to-last line (last line is often the current prompt)
-        let commandStartIndex = -1
-
-        for (let i = lines.length - 2; i >= 0; i--) {
-            const line = lines[i]
-            const trimmedLine = line.trim()
-
-            if (!trimmedLine) { continue }
-
-            // Check if this line has a prompt with command on the same line
-            if (promptWithCommandPatterns.some(p => p.test(line))) {
-                commandStartIndex = i
-                break
-            }
-
-            // Check if this is a bare prompt and the next line has content (the command output started)
-            if (promptPatterns.some(p => p.test(trimmedLine))) {
-                // This is a prompt line - check if there's content after it
-                if (i + 1 < lines.length && lines[i + 1].trim()) {
-                    commandStartIndex = i
-                    break
-                }
-            }
-        }
-
-        // If we found a command start, return from there to end (but not the last line if it's a new prompt)
-        let relevantLines: string[] = []
-        if (commandStartIndex >= 0) {
-            relevantLines = lines.slice(commandStartIndex)
-
-            // Remove the last line if it's just an empty prompt
-            const lastLine = relevantLines[relevantLines.length - 1]?.trim()
-            if (lastLine && promptPatterns.some(p => p.test(lastLine)) && !promptWithCommandPatterns.some(p => p.test(lastLine))) {
-                relevantLines = relevantLines.slice(0, -1)
-            }
-        } else {
-            // Fallback: just return last 20 lines
-            relevantLines = lines.slice(-20)
-        }
-
+        const buffer = xterm?.buffer.active
         return {
-            content: relevantLines.join('\n'),
-            cursorPosition: {
-                row: buffer.cursorY,
-                col: buffer.cursorX,
-            },
-            isAlternateScreen: buffer.type === 'alternate',
-            rows: xterm.rows,
-            cols: xterm.cols,
+            content: tracked,
+            cursorPosition: buffer ? { row: buffer.cursorY, col: buffer.cursorX } : undefined,
+            isAlternateScreen: buffer?.type === 'alternate',
+            rows: xterm?.rows ?? 0,
+            cols: xterm?.cols ?? 0,
         }
     }
 

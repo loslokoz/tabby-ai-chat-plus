@@ -17,6 +17,7 @@ import { AISettingsTabProvider } from './settings'
 import { AIAssistantService } from './services/aiAssistant.service'
 import { TerminalContextService } from './services/terminalContext.service'
 import { ModelProviderService } from './services/modelProvider.service'
+import { CommandTrackerService } from './services/commandTracker.service'
 
 // Decorators
 import { AIAssistantDecorator } from './decorators/aiAssistant.decorator'
@@ -45,6 +46,7 @@ import { AIMarkdownPipe } from './pipes/aiMarkdown.pipe'
         AIAssistantService,
         TerminalContextService,
         ModelProviderService,
+        CommandTrackerService,
     ],
     declarations: [
         AIPanelComponent,

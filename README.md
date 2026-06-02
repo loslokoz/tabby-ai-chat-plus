@@ -77,11 +77,12 @@ After installation, go to **Settings** > **AI Assistant** to configure:
 
 1. Open the AI panel with `Ctrl+Shift+A` (macOS: `Cmd+Shift+A`)
 2. Type your question or request
-3. Optionally attach terminal context using the attachment icon or with `Alt+1`–`Alt+4`:
-   - `Alt+1` — visible terminal content
-   - `Alt+2` — last N lines
-   - `Alt+3` — last command and its output
-   - `Alt+4` — current selection
+3. Optionally attach terminal context using the attachment icon or with `Alt+§`/`Alt+1`–`Alt+4`:
+   - `Alt+§` — no context
+   - `Alt+1` — last command output
+   - `Alt+2` — visible terminal content
+   - `Alt+3` — current selection
+   - `Alt+4` — last N lines
 4. Press Enter or click Send
 
 ### Panel Width

@@ -402,14 +402,14 @@ export class AIPanelComponent implements OnInit, OnDestroy {
             }
         }
 
-        // Option+` / 1..5 — switch context mode (event.code — Option changes event.key on macOS)
+        // Option+§/1..4 — switch context mode (event.code — Option changes event.key on macOS)
         if (event.altKey) {
             const contextByCode: Partial<Record<string, ContextMode>> = {
                 IntlBackslash: 'none',
-                Digit1: 'visible',
-                Digit2: 'lastN',
-                Digit3: 'lastCommand',
-                Digit4: 'selection',
+                Digit1: 'lastCommand',
+                Digit2: 'visible',
+                Digit3: 'selection',
+                Digit4: 'lastN',
             }
             const mode = contextByCode[event.code]
             if (mode) {

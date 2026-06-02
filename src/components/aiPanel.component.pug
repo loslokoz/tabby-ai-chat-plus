@@ -85,24 +85,24 @@
                 ) No context
                 button.dropdown-item(
                     ngbDropdownItem,
-                    (click)='setContextMode("visible")',
-                    [class.active]='contextMode === "visible"'
-                ) Visible content
-                button.dropdown-item(
-                    ngbDropdownItem,
-                    (click)='setContextMode("lastN")',
-                    [class.active]='contextMode === "lastN"'
-                ) Last {{contextLines}} lines
-                button.dropdown-item(
-                    ngbDropdownItem,
                     (click)='setContextMode("lastCommand")',
                     [class.active]='contextMode === "lastCommand"'
                 ) Last command output
                 button.dropdown-item(
                     ngbDropdownItem,
+                    (click)='setContextMode("visible")',
+                    [class.active]='contextMode === "visible"'
+                ) Visible content
+                button.dropdown-item(
+                    ngbDropdownItem,
                     (click)='setContextMode("selection")',
                     [class.active]='contextMode === "selection"'
                 ) Current selection
+                button.dropdown-item(
+                    ngbDropdownItem,
+                    (click)='setContextMode("lastN")',
+                    [class.active]='contextMode === "lastN"'
+                ) Last {{contextLines}} lines
 
         button.btn.btn-sm.btn-outline-secondary.ms-2(
             *ngIf='contextMode !== "none"',
@@ -176,7 +176,7 @@
             (keyup)='$event.stopPropagation()',
             (keypress)='$event.stopPropagation()',
             (focus)='onInputFocus()',
-            placeholder='Ask your terminal...',
+            placeholder='Ask your terminalXS...',
             rows='2',
             [disabled]='isLoading'
         )

@@ -1,7 +1,9 @@
 import { Injectable, ComponentRef, Injector, ApplicationRef, createComponent, EnvironmentInjector } from '@angular/core'
+import { take } from 'rxjs'
 import { HotkeysService, ConfigService } from 'tabby-core'
 import { TerminalDecorator, BaseTerminalTabComponent } from 'tabby-terminal'
 import { AIPanelComponent } from '../components/aiPanel.component'
+import { CommandTrackerService } from '../services/commandTracker.service'
 
 /**
  * Decorator that attaches the AI Assistant panel to terminal tabs.
@@ -19,11 +21,29 @@ export class AIAssistantDecorator extends TerminalDecorator {
         private appRef: ApplicationRef,
         private injector: Injector,
         private envInjector: EnvironmentInjector,
+        private commandTracker: CommandTrackerService,
     ) {
         super()
     }
 
     attach (terminal: BaseTerminalTabComponent<any>): void {
+        // Start tracking command boundaries. frontendReady is a plain Subject
+        // (no replay), so attach immediately if the frontend already exists and
+        // otherwise wait for the readiness signal.
+        const attachTracker = (): void => {
+            if (terminal.frontend) {
+                this.commandTracker.attach(terminal.frontend)
+            }
+        }
+        if (terminal.frontend) {
+            attachTracker()
+        } else {
+            this.subscribeUntilDetached(
+                terminal,
+                terminal.frontendReady$.pipe(take(1)).subscribe(attachTracker),
+            )
+        }
+
         // Subscribe to hotkey to toggle AI panel
         this.subscribeUntilDetached(
             terminal,
@@ -40,6 +60,9 @@ export class AIAssistantDecorator extends TerminalDecorator {
     }
 
     detach (terminal: BaseTerminalTabComponent<any>): void {
+        if (terminal.frontend) {
+            this.commandTracker.detach(terminal.frontend)
+        }
         this.destroyPanel(terminal)
         this.panelVisible.delete(terminal)
         super.detach(terminal)
