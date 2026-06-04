@@ -261,18 +261,22 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         const apiMessages: { role: string; content: string }[] = []
 
         // System prompt
-        let systemContent = aiConfig.systemPrompt || 'You are a helpful terminal assistant.'
-        if (this.attachedContext) {
-            systemContent += `\n\n## Current Terminal Context\n\`\`\`\n${this.attachedContext}\n\`\`\``
-        }
+        const systemContent = aiConfig.systemPrompt || 'You are a helpful terminal assistant.'
         apiMessages.push({ role: 'system', content: systemContent })
 
-        // Add conversation history (excluding current streaming message)
+        // Add conversation history (excluding current streaming message).
+        // Each user message carries its own attached context inline so it travels
+        // with that turn and is preserved across the whole conversation, instead
+        // of relying on a single volatile system-prompt copy.
         for (const msg of this.messages) {
             if (msg.isStreaming) { continue }
-            if (msg.role === 'user' || msg.role === 'assistant') {
-                apiMessages.push({ role: msg.role, content: msg.content })
+            if (msg.role !== 'user' && msg.role !== 'assistant') { continue }
+
+            let { content } = msg
+            if (msg.role === 'user' && msg.attachedContext) {
+                content += `\n\n## Terminal Context\n\`\`\`\n${msg.attachedContext}\n\`\`\``
             }
+            apiMessages.push({ role: msg.role, content })
         }
 
         const body = {
