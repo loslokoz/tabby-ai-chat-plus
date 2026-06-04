@@ -264,5 +264,25 @@ export class AIAssistantDecorator extends TerminalDecorator {
         this.commandWatchers.set(terminal, sub)
 
         terminal.sendInput(payload)
+
+        // Move focus to the terminal while the command runs so any interactive
+        // I/O it triggers (e.g. a sudo password prompt) goes straight to the
+        // shell. Focus returns to the chat input once the watcher above sees
+        // the completion sentinel.
+        this.focusTerminal(terminal)
+    }
+
+    private focusTerminal (terminal: BaseTerminalTabComponent<any>): void {
+        // Lift any focus block left in place by focusChatInput before handing
+        // keyboard focus back to the terminal, otherwise frontend.focus() would
+        // be a no-op while the override is active.
+        const xtermTextarea = terminal.element.nativeElement
+            .querySelector('.xterm-helper-textarea') as HTMLElement | null
+        const orig = this.origXtermFocus.get(terminal)
+        if (orig && xtermTextarea) {
+            xtermTextarea.focus = orig
+            this.origXtermFocus.delete(terminal)
+        }
+        terminal.frontend?.focus()
     }
 }
