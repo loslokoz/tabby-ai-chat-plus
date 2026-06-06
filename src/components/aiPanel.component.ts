@@ -73,11 +73,9 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         // Load context settings
         this.contextLines = this.config.store.aiAssistant?.defaultContextLines ?? 50
 
-        // Auto-attach context if configured
-        if (this.config.store.aiAssistant?.autoAttachOnOpen) {
-            this.contextMode = 'lastN'
-            this.updateAttachedContext()
-        }
+        // On open, default the context to the last command's output and fetch it
+        // so the panel starts already aware of what the user just ran.
+        this.setContextMode('lastCommand')
 
         // Load available models
         this.loadModels()
