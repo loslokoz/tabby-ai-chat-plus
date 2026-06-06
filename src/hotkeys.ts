@@ -11,11 +11,11 @@ export class AIAssistantHotkeyProvider extends HotkeyProvider {
         return [
             {
                 id: 'toggle-ai-panel',
-                name: this.translate.instant('Toggle AI Assistant Panel'),
+                name: this.translate.instant('Toggle AI Assistant Plus Panel'),
             },
             {
                 id: 'focus-ai-input',
-                name: this.translate.instant('Focus AI Assistant input'),
+                name: this.translate.instant('Focus AI Assistant Plus input'),
             },
             {
                 id: 'ai-context-none',

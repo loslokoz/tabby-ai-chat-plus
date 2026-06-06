@@ -100,7 +100,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges()
 
         try {
-            this.availableModels = await this.modelProvider.fetchModels(forceRefresh)
+            this.availableModels = await this.modelProvider.fetchAllModels(forceRefresh)
         } catch (error) {
             console.error('Failed to load models:', error)
         } finally {
@@ -110,41 +110,77 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     }
 
     selectModel (model: ModelInfo): void {
-        this.modelProvider.setModel(model.id)
+        const provider = model.provider ?? this.modelProvider.currentProvider
+        this.modelProvider.setActiveProvider(provider)
+        this.modelProvider.setModelForProvider(provider, model.id)
         this.cdr.detectChanges()
     }
 
-    get filteredModels (): ModelInfo[] {
+    /**
+     * Models grouped by enabled provider (Custom LLM first), with the search
+     * and quick-access filters applied. Drives the picker so the user can pick
+     * both the provider and the model in one click.
+     */
+    get groupedModels (): { provider: string; label: string; models: ModelInfo[] }[] {
         const useQuickOnly = this.config.store.aiAssistant?.useQuickModelsOnly ?? false
         const quickIds: string[] = this.config.store.aiAssistant?.quickModels ?? []
-
-        let source = this.availableModels
-        if (useQuickOnly && quickIds.length > 0) {
-            source = quickIds
-                .map(id => this.availableModels.find(m => m.id === id) ?? { id, name: id })
-        }
-
-        if (!this.modelSearchTerm) {
-            return source.slice(0, 50)
-        }
         const term = this.modelSearchTerm.toLowerCase()
-        return source.filter(m =>
-            m.id.toLowerCase().includes(term) ||
-            m.name.toLowerCase().includes(term),
-        ).slice(0, 50)
+
+        const groups: { provider: string; label: string; models: ModelInfo[] }[] = []
+        for (const provider of this.modelProvider.enabledProviders) {
+            let models = this.availableModels.filter(m => m.provider === provider)
+            if (useQuickOnly && quickIds.length > 0) {
+                models = models.filter(m => quickIds.includes(m.id))
+            }
+            if (term) {
+                models = models.filter(m =>
+                    m.id.toLowerCase().includes(term) ||
+                    m.name.toLowerCase().includes(term),
+                )
+            }
+            models = models.slice(0, 50)
+
+            // Always keep the configured model selectable, even when the
+            // provider's /models endpoint returned nothing (common for custom
+            // LLMs where the model name is typed by hand), didn't list it, or
+            // the quick-access-only filter would otherwise hide it.
+            const configured = this.modelProvider.getConfiguredModel(provider)
+            if (configured && !term && !models.some(m => m.id === configured)) {
+                models = [{ id: configured, name: configured, provider }, ...models]
+            }
+
+            // Keep every enabled provider on the list (even with no models) so
+            // it stays visible and the user can refresh or set a model.
+            groups.push({ provider, label: this.modelProvider.providerLabel(provider), models })
+        }
+        return groups
+    }
+
+    /** Show provider headers only when more than one provider is enabled. */
+    get showProviderHeaders (): boolean {
+        return this.modelProvider.enabledProviders.length > 1
+    }
+
+    isCurrentModel (model: ModelInfo): boolean {
+        return model.provider === this.modelProvider.currentProvider &&
+            model.id === this.modelProvider.currentModel
     }
 
     get currentModelDisplay (): string {
         const modelId = this.modelProvider.currentModel
-        const model = this.availableModels.find(m => m.id === modelId)
-        if (model) {
-            return model.name
+        const model = this.availableModels.find(m =>
+            m.id === modelId && m.provider === this.modelProvider.currentProvider)
+        let name = model?.name ?? modelId
+        if (!name) {
+            return 'Select model'
         }
-        // Truncate long model IDs for display
-        if (modelId.length > 25) {
-            return modelId.slice(0, 22) + '...'
+        if (name.length > 25) {
+            name = name.slice(0, 22) + '...'
         }
-        return modelId || 'Select model'
+        if (this.showProviderHeaders) {
+            return `${this.modelProvider.providerLabel(this.modelProvider.currentProvider)} · ${name}`
+        }
+        return name
     }
 
     ngOnDestroy (): void {
@@ -267,7 +303,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
 
         // Only require API key for OpenRouter - LiteLLM may not need one
         if (!apiKey && this.modelProvider.currentProvider === 'openrouter') {
-            throw new Error('API key not configured. Please set your OpenRouter API key in Settings > AI Assistant.')
+            throw new Error('API key not configured. Please set your OpenRouter API key in Settings > AI Assistant Plus.')
         }
 
         const endpoint = this.modelProvider.getEndpoint() + '/chat/completions'
@@ -275,8 +311,10 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         // Build messages for API
         const apiMessages: { role: string; content: string }[] = []
 
-        // System prompt
-        const systemContent = aiConfig.systemPrompt || 'You are a helpful terminal assistant.'
+        // System prompt + the language the assistant should reply in
+        const base = aiConfig.systemPrompt || 'You are a helpful terminal assistant.'
+        const language = aiConfig.language || 'English'
+        const systemContent = `${base}\n\nAlways respond in ${language}, regardless of the language of the question.`
         apiMessages.push({ role: 'system', content: systemContent })
 
         // Add conversation history (excluding current streaming message).

@@ -6,7 +6,7 @@ import { AISettingsTabComponent } from './components/aiSettingsTab.component'
 export class AISettingsTabProvider extends SettingsTabProvider {
     id = 'ai-assistant'
     icon = 'robot'
-    title = 'AI Assistant'
+    title = 'AI Assistant Plus'
 
     getComponentType (): any {
         return AISettingsTabComponent

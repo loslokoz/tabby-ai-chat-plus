@@ -126,8 +126,9 @@ export class AIAssistantService {
     ): { role: string; content: string }[] {
         const messages: { role: string; content: string }[] = []
 
-        // System message with optional context
-        let systemContent = systemPrompt
+        // System message with optional context + reply language
+        const language = this.config.store.aiAssistant?.language || 'English'
+        let systemContent = `${systemPrompt}\n\nAlways respond in ${language}, regardless of the language of the question.`
         if (attachedContext) {
             systemContent += `\n\n## Current Terminal Context\n\`\`\`\n${attachedContext}\n\`\`\``
         }
@@ -163,7 +164,7 @@ export class AIAssistantService {
         const apiKey = this.modelProvider.getApiKey()
 
         if (!apiKey) {
-            throw new Error('API key not configured. Please set your API key in Settings > AI Assistant.')
+            throw new Error('API key not configured. Please set your API key in Settings > AI Assistant Plus.')
         }
 
         const endpoint = this.modelProvider.getEndpoint().replace(/\/+$/, '') + '/chat/completions'

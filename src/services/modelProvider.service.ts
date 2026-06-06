@@ -7,6 +7,7 @@ export interface ModelInfo {
     name: string
     description?: string
     contextLength?: number
+    provider?: AIProvider
     pricing?: {
         prompt: number
         completion: number
@@ -21,28 +22,72 @@ export class ModelProviderService {
     constructor (private config: ConfigService) {}
 
     /**
-     * Get the current provider setting
+     * Enabled providers, in display order (Custom LLM first when enabled).
+     */
+    get enabledProviders (): AIProvider[] {
+        const cfg = this.config.store.aiAssistant
+        const result: AIProvider[] = []
+        if (cfg?.litellmEnabled) { result.push('litellm') }
+        if (cfg?.openRouterEnabled) { result.push('openrouter') }
+        return result
+    }
+
+    /**
+     * Human-readable label for a provider.
+     */
+    providerLabel (provider: AIProvider): string {
+        return provider === 'litellm' ? 'Custom LLM' : 'OpenRouter'
+    }
+
+    /**
+     * The provider currently used for chat: the stored active one if it is
+     * enabled, otherwise the first enabled provider.
      */
     get currentProvider (): AIProvider {
-        return this.config.store.aiAssistant?.provider ?? 'openrouter'
+        const active = this.config.store.aiAssistant?.activeProvider as AIProvider | undefined
+        const enabled = this.enabledProviders
+        if (active && enabled.includes(active)) {
+            return active
+        }
+        return enabled[0] ?? 'openrouter'
+    }
+
+    setActiveProvider (provider: AIProvider): void {
+        this.config.store.aiAssistant.activeProvider = provider
+        this.config.save()
     }
 
     /**
-     * Get the current model based on provider
+     * Get the current model based on the active provider
      */
     get currentModel (): string {
+        return this.modelForProvider(this.currentProvider)
+    }
+
+    private modelForProvider (provider: AIProvider): string {
         const cfg = this.config.store.aiAssistant
-        if (this.currentProvider === 'openrouter') {
-            return cfg?.openRouterModel ?? 'openai/gpt-4o-mini'
-        }
-        return cfg?.litellmModel ?? ''
+        return provider === 'openrouter'
+            ? cfg?.openRouterModel ?? 'openai/gpt-4o-mini'
+            : cfg?.litellmModel ?? ''
     }
 
     /**
-     * Set the current model for the active provider
+     * The model id configured for a provider (may be a manually-typed name not
+     * present in the provider's /models listing).
+     */
+    getConfiguredModel (provider: AIProvider): string {
+        return this.modelForProvider(provider)
+    }
+
+    /**
+     * Set the model for the active provider
      */
     setModel (modelId: string): void {
-        if (this.currentProvider === 'openrouter') {
+        this.setModelForProvider(this.currentProvider, modelId)
+    }
+
+    setModelForProvider (provider: AIProvider, modelId: string): void {
+        if (provider === 'openrouter') {
             this.config.store.aiAssistant.openRouterModel = modelId
         } else {
             this.config.store.aiAssistant.litellmModel = modelId
@@ -51,32 +96,32 @@ export class ModelProviderService {
     }
 
     /**
-     * Get API endpoint based on provider
+     * Get API endpoint for a provider (defaults to the active one)
      */
-    getEndpoint (): string {
+    getEndpoint (provider: AIProvider = this.currentProvider): string {
         const cfg = this.config.store.aiAssistant
-        if (this.currentProvider === 'openrouter') {
+        if (provider === 'openrouter') {
             return 'https://openrouter.ai/api/v1'
         }
         return cfg?.litellmEndpoint?.replace(/\/+$/, '') ?? 'http://localhost:4000/v1'
     }
 
     /**
-     * Get API key based on provider
+     * Get API key for a provider (defaults to the active one)
      */
-    getApiKey (): string {
+    getApiKey (provider: AIProvider = this.currentProvider): string {
         const cfg = this.config.store.aiAssistant
-        if (this.currentProvider === 'openrouter') {
+        if (provider === 'openrouter') {
             return cfg?.openRouterApiKey ?? ''
         }
         return cfg?.litellmApiKey ?? ''
     }
 
     /**
-     * Fetch available models from the current provider
+     * Fetch available models for a single provider (cached per provider)
      */
-    async fetchModels (forceRefresh = false): Promise<ModelInfo[]> {
-        const cacheKey = `${this.currentProvider}-${this.getEndpoint()}`
+    async fetchModels (provider: AIProvider = this.currentProvider, forceRefresh = false): Promise<ModelInfo[]> {
+        const cacheKey = `${provider}-${this.getEndpoint(provider)}`
 
         // Check cache
         if (!forceRefresh) {
@@ -87,9 +132,9 @@ export class ModelProviderService {
         }
 
         try {
-            const models = this.currentProvider === 'openrouter'
+            const models = provider === 'openrouter'
                 ? await this.fetchOpenRouterModels()
-                : await this.fetchLiteLLMModels()
+                : await this.fetchLiteLLMModels(provider)
 
             // Update cache
             this.modelsCache.set(cacheKey, { models, timestamp: Date.now() })
@@ -103,12 +148,24 @@ export class ModelProviderService {
     }
 
     /**
+     * Fetch models from every enabled provider, each tagged with its provider
+     * and concatenated in display order (Custom LLM first).
+     */
+    async fetchAllModels (forceRefresh = false): Promise<ModelInfo[]> {
+        const out: ModelInfo[] = []
+        for (const provider of this.enabledProviders) {
+            out.push(...await this.fetchModels(provider, forceRefresh))
+        }
+        return out
+    }
+
+    /**
      * Fetch models from OpenRouter API
      */
     private async fetchOpenRouterModels (): Promise<ModelInfo[]> {
         const response = await fetch('https://openrouter.ai/api/v1/models', {
             headers: {
-                Authorization: `Bearer ${this.getApiKey()}`,
+                Authorization: `Bearer ${this.getApiKey('openrouter')}`,
             },
         })
 
@@ -123,6 +180,7 @@ export class ModelProviderService {
             name: model.name || model.id,
             description: model.description,
             contextLength: model.context_length,
+            provider: 'openrouter' as AIProvider,
             pricing: model.pricing ? {
                 prompt: parseFloat(model.pricing.prompt) * 1000000,
                 completion: parseFloat(model.pricing.completion) * 1000000,
@@ -133,9 +191,9 @@ export class ModelProviderService {
     /**
      * Fetch models from LiteLLM/OpenAI-compatible endpoint
      */
-    private async fetchLiteLLMModels (): Promise<ModelInfo[]> {
-        const endpoint = this.getEndpoint()
-        const apiKey = this.getApiKey()
+    private async fetchLiteLLMModels (provider: AIProvider): Promise<ModelInfo[]> {
+        const endpoint = this.getEndpoint(provider)
+        const apiKey = this.getApiKey(provider)
 
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
@@ -157,23 +215,24 @@ export class ModelProviderService {
             name: model.id,
             description: model.description,
             contextLength: model.context_length,
+            provider: 'litellm' as AIProvider,
         })).sort((a: ModelInfo, b: ModelInfo) => a.name.localeCompare(b.name))
     }
 
     /**
-     * Get request headers for API calls
+     * Get request headers for API calls (defaults to the active provider)
      */
-    getRequestHeaders (): Record<string, string> {
+    getRequestHeaders (provider: AIProvider = this.currentProvider): Record<string, string> {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         }
 
-        const apiKey = this.getApiKey()
+        const apiKey = this.getApiKey(provider)
         if (apiKey) {
             headers['Authorization'] = `Bearer ${apiKey}`
         }
 
-        if (this.currentProvider === 'openrouter') {
+        if (provider === 'openrouter') {
             headers['HTTP-Referer'] = 'https://github.com/Eugeny/tabby'
             headers['X-Title'] = 'Tabby Terminal AI Assistant'
         }

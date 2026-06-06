@@ -11,7 +11,7 @@
     .header
         .title
             i.fas.fa-robot.me-2
-            span AI Assistant
+            span AI Assistant Plus
         .flex-grow-1
         
         // Model picker dropdown
@@ -48,14 +48,18 @@
                     .text-center.py-3(*ngIf='isLoadingModels && availableModels.length === 0')
                         i.fas.fa-spinner.fa-spin
                         span.ms-2 Loading...
-                    button.dropdown-item.model-item(
-                        *ngFor='let model of filteredModels',
-                        ngbDropdownItem,
-                        (click)='selectModel(model)',
-                        [class.active]='model.id === modelProvider.currentModel'
-                    )
-                        .model-item-name {{model.name}}
-                        .model-item-id.text-muted.small {{model.id}}
+                    ng-container(*ngFor='let group of groupedModels')
+                        .dropdown-header.provider-group-header(*ngIf='showProviderHeaders') {{group.label}}
+                        button.dropdown-item.model-item(
+                            *ngFor='let model of group.models',
+                            ngbDropdownItem,
+                            (click)='selectModel(model)',
+                            [class.active]='isCurrentModel(model)'
+                        )
+                            .model-item-name {{model.name}}
+                            .model-item-id.text-muted.small {{model.id}}
+                        .model-empty.text-muted.small(*ngIf='group.models.length === 0')
+                            | No models — set one in Settings or Refresh
 
         button.btn.btn-link.btn-sm.clear-btn(
             (click)='clearChat()',
@@ -217,7 +221,7 @@
             (keyup)='onContainerKey($event)',
             (keypress)='onContainerKey($event)',
             (focus)='onInputFocus()',
-            placeholder='Ask your terminalXS...',
+            placeholder='Ask your terminal...',
             rows='2',
             [disabled]='isLoading'
         )

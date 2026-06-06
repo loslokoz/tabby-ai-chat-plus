@@ -3,8 +3,11 @@ import { ConfigProvider, Platform } from 'tabby-core'
 export type AIProvider = 'openrouter' | 'litellm'
 
 export interface AIAssistantConfig {
-    // Provider Settings
-    provider: AIProvider
+    // Provider Settings - both providers can be enabled at once; activeProvider
+    // is the one currently used for chat (switchable from the model picker).
+    openRouterEnabled: boolean
+    litellmEnabled: boolean
+    activeProvider: AIProvider
 
     // OpenRouter Settings
     openRouterApiKey: string
@@ -19,7 +22,6 @@ export interface AIAssistantConfig {
     // Behavior
     commandExecution: 'insert' | 'execute' | 'ask'
     defaultContextLines: number
-    autoAttachOnOpen: boolean
 
     // UI
     panelWidthPercent: number
@@ -34,13 +36,18 @@ export interface AIAssistantConfig {
     maxTokens: number
     temperature: number
     systemPrompt: string
+
+    // Language the assistant should reply in (appended to the system prompt)
+    language: string
 }
 
 export class AIAssistantConfigProvider extends ConfigProvider {
     defaults = {
         aiAssistant: {
             // Provider Settings
-            provider: 'openrouter',
+            openRouterEnabled: true,
+            litellmEnabled: false,
+            activeProvider: 'openrouter',
 
             // OpenRouter Settings
             openRouterApiKey: '',
@@ -55,7 +62,6 @@ export class AIAssistantConfigProvider extends ConfigProvider {
             // Behavior
             commandExecution: 'insert',
             defaultContextLines: 50,
-            autoAttachOnOpen: false,
 
             // UI
             panelWidthPercent: 40,
@@ -85,6 +91,9 @@ Response rules:
 You have access to the user's terminal context when they attach it. Use this context to provide relevant, specific help.
 
 Be concise and focused on solving terminal-related problems efficiently.`,
+
+            // Language
+            language: 'English',
         },
         hotkeys: {
             'toggle-ai-panel': ['Ctrl-Shift-A'],

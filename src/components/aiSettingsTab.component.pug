@@ -1,68 +1,22 @@
-h3 AI Assistant
+h3 AI Assistant Plus
 
 .form-line
     .header
-        .title Provider
-        .description Select your AI provider
-    select.form-control(
-        [ngModel]='config.store.aiAssistant.provider',
-        (ngModelChange)='setProvider($event)'
+        .title Providers
+        .description Enable one or both providers. When both are enabled you can switch between them from the model picker in the chat.
+
+.form-line
+    .header
+        .title Custom LLM (LiteLLM / OpenAI-compatible)
+        .description Self-hosted or custom OpenAI-compatible endpoint
+    toggle(
+        [(ngModel)]='config.store.aiAssistant.litellmEnabled',
+        (ngModelChange)='onToggleLitellm()'
     )
-        option(value='openrouter') OpenRouter
-        option(value='litellm') LiteLLM / Custom Endpoint
 
-// OpenRouter Settings
-.provider-section(*ngIf='currentProvider === "openrouter"')
-    h4.mt-4.mb-3 OpenRouter Settings
-    
-    .form-line
-        .header
-            .title API Key
-            .description Get your API key from #[a(href='https://openrouter.ai/keys', target='_blank') openrouter.ai/keys]
-        input.form-control(
-            type='password',
-            [(ngModel)]='config.store.aiAssistant.openRouterApiKey',
-            (ngModelChange)='config.save()',
-            placeholder='sk-or-v1-...'
-        )
-
-    .form-line
-        .header
-            .title Model
-            .description Select the AI model to use
-        .model-selector
-            input.form-control.mb-2(
-                type='text',
-                [(ngModel)]='openRouterSearchTerm',
-                placeholder='Search models...'
-            )
-            .model-list-container
-                .text-center.py-3(*ngIf='isLoadingOpenRouterModels')
-                    i.fas.fa-spinner.fa-spin.me-2
-                    span Loading models...
-                .model-list(*ngIf='!isLoadingOpenRouterModels')
-                    .model-option(
-                        *ngFor='let model of filteredOpenRouterModels',
-                        [class.active]='model.id === config.store.aiAssistant.openRouterModel',
-                        (click)='selectOpenRouterModel(model)'
-                    )
-                        .model-name {{model.name}}
-                        .model-id {{model.id}}
-                    .text-muted.text-center.py-2(*ngIf='filteredOpenRouterModels.length === 0 && !isLoadingOpenRouterModels')
-                        | No models found
-            .d-flex.justify-content-between.align-items-center.mt-2
-                .current-model.text-muted.small
-                    | Current: {{config.store.aiAssistant.openRouterModel || 'None selected'}}
-                button.btn.btn-sm.btn-outline-secondary(
-                    (click)='loadOpenRouterModels()',
-                    [disabled]='isLoadingOpenRouterModels'
-                )
-                    i.fas.fa-sync-alt.me-1([class.fa-spin]='isLoadingOpenRouterModels')
-                    | Refresh
-
-// LiteLLM Settings
-.provider-section(*ngIf='currentProvider === "litellm"')
-    h4.mt-4.mb-3 LiteLLM / Custom Endpoint Settings
+// Custom LLM Settings
+.provider-section(*ngIf='config.store.aiAssistant.litellmEnabled')
+    h4.mt-4.mb-3 Custom LLM Settings
 
     .form-line
         .header
@@ -121,6 +75,64 @@ h3 AI Assistant
                     i.fas.fa-sync-alt.me-1([class.fa-spin]='isLoadingLitellmModels')
                     | Fetch Models
 
+.form-line
+    .header
+        .title OpenRouter
+        .description Cloud models via openrouter.ai
+    toggle(
+        [(ngModel)]='config.store.aiAssistant.openRouterEnabled',
+        (ngModelChange)='onToggleOpenRouter()'
+    )
+
+// OpenRouter Settings
+.provider-section(*ngIf='config.store.aiAssistant.openRouterEnabled')
+    h4.mt-4.mb-3 OpenRouter Settings
+    
+    .form-line
+        .header
+            .title API Key
+            .description Get your API key from #[a(href='https://openrouter.ai/keys', target='_blank') openrouter.ai/keys]
+        input.form-control(
+            type='password',
+            [(ngModel)]='config.store.aiAssistant.openRouterApiKey',
+            (ngModelChange)='config.save()',
+            placeholder='sk-or-v1-...'
+        )
+
+    .form-line
+        .header
+            .title Model
+            .description Select the AI model to use
+        .model-selector
+            input.form-control.mb-2(
+                type='text',
+                [(ngModel)]='openRouterSearchTerm',
+                placeholder='Search models...'
+            )
+            .model-list-container
+                .text-center.py-3(*ngIf='isLoadingOpenRouterModels')
+                    i.fas.fa-spinner.fa-spin.me-2
+                    span Loading models...
+                .model-list(*ngIf='!isLoadingOpenRouterModels')
+                    .model-option(
+                        *ngFor='let model of filteredOpenRouterModels',
+                        [class.active]='model.id === config.store.aiAssistant.openRouterModel',
+                        (click)='selectOpenRouterModel(model)'
+                    )
+                        .model-name {{model.name}}
+                        .model-id {{model.id}}
+                    .text-muted.text-center.py-2(*ngIf='filteredOpenRouterModels.length === 0 && !isLoadingOpenRouterModels')
+                        | No models found
+            .d-flex.justify-content-between.align-items-center.mt-2
+                .current-model.text-muted.small
+                    | Current: {{config.store.aiAssistant.openRouterModel || 'None selected'}}
+                button.btn.btn-sm.btn-outline-secondary(
+                    (click)='loadOpenRouterModels()',
+                    [disabled]='isLoadingOpenRouterModels'
+                )
+                    i.fas.fa-sync-alt.me-1([class.fa-spin]='isLoadingOpenRouterModels')
+                    | Refresh
+
     .form-line
         .header
             .title Disable reasoning for Qwen3.5
@@ -130,62 +142,62 @@ h3 AI Assistant
             (ngModelChange)='config.save()'
         )
 
-// Quick Access Models
-h4.mt-4.mb-3 Quick Access Models
+    // Quick Access Models
+    h5.mt-4.mb-3 Quick Access Models
 
-.form-line
-    .header
-        .title Use quick access only
-        .description Show only quick access models in the chat panel instead of the full model picker
-    toggle(
-        [(ngModel)]='config.store.aiAssistant.useQuickModelsOnly',
-        (ngModelChange)='config.save()'
-    )
+    .form-line
+        .header
+            .title Use quick access only
+            .description Show only quick access models in the chat panel instead of the full model picker
+        toggle(
+            [(ngModel)]='config.store.aiAssistant.useQuickModelsOnly',
+            (ngModelChange)='config.save()'
+        )
 
-.form-line
-    .header
-        .title Quick access models
-        .description Models available for quick switching in the chat panel
+    .form-line
+        .header
+            .title Quick access models
+            .description Models available for quick switching in the chat panel
 
-    .quick-models-list.mb-3(*ngIf='quickModels.length > 0')
-        .quick-model-item(*ngFor='let modelId of quickModels')
-            span.model-id-text {{modelId}}
-            button.btn.btn-sm.btn-link.text-danger.ms-auto(
-                (click)='removeQuickModel(modelId)',
-                title='Remove'
-            )
-                i.fas.fa-times
-
-    .add-quick-model
-        .d-flex.gap-2.mb-2
-            input.form-control(
-                type='text',
-                [(ngModel)]='customModelInput',
-                placeholder='Enter model ID manually...',
-                (keydown.enter)='addQuickModel(customModelInput)'
-            )
-            button.btn.btn-outline-primary(
-                (click)='addQuickModel(customModelInput)',
-                [disabled]='!customModelInput.trim()'
-            )
-                i.fas.fa-plus.me-1
-                | Add
-
-        .mt-2(*ngIf='(openRouterModels.length > 0 || litellmModels.length > 0)')
-            input.form-control.mb-2(
-                type='text',
-                [(ngModel)]='quickModelSearchTerm',
-                placeholder='Search available models to add...'
-            )
-            .model-list-container(*ngIf='quickModelSearchTerm')
-                .model-option(
-                    *ngFor='let model of availableModelsForQuick',
-                    (click)='addQuickModel(model.id)'
+        .quick-models-list.mb-3(*ngIf='quickModels.length > 0')
+            .quick-model-item(*ngFor='let modelId of quickModels')
+                span.model-id-text {{modelId}}
+                button.btn.btn-sm.btn-link.text-danger.ms-auto(
+                    (click)='removeQuickModel(modelId)',
+                    title='Remove'
                 )
-                    .model-name {{model.name}}
-                    .model-id {{model.id}}
-                .text-muted.text-center.py-2(*ngIf='availableModelsForQuick.length === 0')
-                    | No models found
+                    i.fas.fa-times
+
+        .add-quick-model
+            .d-flex.gap-2.mb-2
+                input.form-control(
+                    type='text',
+                    [(ngModel)]='customModelInput',
+                    placeholder='Enter model ID manually...',
+                    (keydown.enter)='addQuickModel(customModelInput)'
+                )
+                button.btn.btn-outline-primary(
+                    (click)='addQuickModel(customModelInput)',
+                    [disabled]='!customModelInput.trim()'
+                )
+                    i.fas.fa-plus.me-1
+                    | Add
+
+            .mt-2(*ngIf='(openRouterModels.length > 0 || litellmModels.length > 0)')
+                input.form-control.mb-2(
+                    type='text',
+                    [(ngModel)]='quickModelSearchTerm',
+                    placeholder='Search available models to add...'
+                )
+                .model-list-container(*ngIf='quickModelSearchTerm')
+                    .model-option(
+                        *ngFor='let model of availableModelsForQuick',
+                        (click)='addQuickModel(model.id)'
+                    )
+                        .model-name {{model.name}}
+                        .model-id {{model.id}}
+                    .text-muted.text-center.py-2(*ngIf='availableModelsForQuick.length === 0')
+                        | No models found
 
 // Advanced Settings
 h4.mt-4.mb-3 Advanced Settings
@@ -273,12 +285,24 @@ h4.mt-4.mb-3 Advanced Settings
 
 .form-line
     .header
-        .title Auto-attach Context
-        .description Automatically attach terminal context when opening the panel
-    toggle(
-        [(ngModel)]='config.store.aiAssistant.autoAttachOnOpen',
+        .title Response Language
+        .description Language the assistant replies in (added to the system prompt)
+    select.form-control(
+        [(ngModel)]='config.store.aiAssistant.language',
         (ngModelChange)='config.save()'
     )
+        option(value='English') English
+        option(value='Polish') Polski
+        option(value='German') Deutsch
+        option(value='French') Français
+        option(value='Spanish') Español
+        option(value='Italian') Italiano
+        option(value='Portuguese') Português
+        option(value='Dutch') Nederlands
+        option(value='Russian') Русский
+        option(value='Ukrainian') Українська
+        option(value='Chinese') 中文
+        option(value='Japanese') 日本語
 
 .form-line
     .header

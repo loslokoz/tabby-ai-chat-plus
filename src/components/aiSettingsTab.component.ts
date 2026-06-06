@@ -1,7 +1,6 @@
 import { Component, HostBinding, OnInit } from '@angular/core'
 import { ConfigService } from 'tabby-core'
 import { ModelProviderService, ModelInfo } from '../services/modelProvider.service'
-import { AIProvider } from '../config'
 
 @Component({
     templateUrl: './aiSettingsTab.component.pug',
@@ -30,26 +29,25 @@ export class AISettingsTabComponent implements OnInit {
     ) {}
 
     ngOnInit (): void {
-        // Load models for the current provider
-        if (this.currentProvider === 'openrouter') {
+        // Load models for each enabled provider
+        if (this.config.store.aiAssistant?.openRouterEnabled) {
             this.loadOpenRouterModels()
-        } else {
+        }
+        if (this.config.store.aiAssistant?.litellmEnabled) {
             this.loadLitellmModels()
         }
     }
 
-    get currentProvider (): AIProvider {
-        return this.config.store.aiAssistant?.provider ?? 'openrouter'
+    onToggleOpenRouter (): void {
+        this.config.save()
+        if (this.config.store.aiAssistant.openRouterEnabled && this.openRouterModels.length === 0) {
+            this.loadOpenRouterModels()
+        }
     }
 
-    setProvider (provider: AIProvider): void {
-        this.config.store.aiAssistant.provider = provider
+    onToggleLitellm (): void {
         this.config.save()
-
-        // Load models for the new provider
-        if (provider === 'openrouter' && this.openRouterModels.length === 0) {
-            this.loadOpenRouterModels()
-        } else if (provider === 'litellm' && this.litellmModels.length === 0) {
+        if (this.config.store.aiAssistant.litellmEnabled && this.litellmModels.length === 0) {
             this.loadLitellmModels()
         }
     }
@@ -57,11 +55,7 @@ export class AISettingsTabComponent implements OnInit {
     async loadOpenRouterModels (): Promise<void> {
         this.isLoadingOpenRouterModels = true
         try {
-            // Temporarily switch to openrouter to fetch models
-            const originalProvider = this.config.store.aiAssistant.provider
-            this.config.store.aiAssistant.provider = 'openrouter'
-            this.openRouterModels = await this.modelProvider.fetchModels(true)
-            this.config.store.aiAssistant.provider = originalProvider
+            this.openRouterModels = await this.modelProvider.fetchModels('openrouter', true)
         } catch (error) {
             console.error('Failed to load OpenRouter models:', error)
         } finally {
@@ -72,11 +66,7 @@ export class AISettingsTabComponent implements OnInit {
     async loadLitellmModels (): Promise<void> {
         this.isLoadingLitellmModels = true
         try {
-            // Temporarily switch to litellm to fetch models
-            const originalProvider = this.config.store.aiAssistant.provider
-            this.config.store.aiAssistant.provider = 'litellm'
-            this.litellmModels = await this.modelProvider.fetchModels(true)
-            this.config.store.aiAssistant.provider = originalProvider
+            this.litellmModels = await this.modelProvider.fetchModels('litellm', true)
         } catch (error) {
             console.error('Failed to load LiteLLM models:', error)
         } finally {
@@ -126,9 +116,7 @@ export class AISettingsTabComponent implements OnInit {
     }
 
     get availableModelsForQuick (): ModelInfo[] {
-        const all = this.currentProvider === 'openrouter'
-            ? this.openRouterModels
-            : this.litellmModels
+        const all = [...this.litellmModels, ...this.openRouterModels]
         const term = this.quickModelSearchTerm.toLowerCase()
         return all
             .filter(m => !this.quickModels.includes(m.id))
