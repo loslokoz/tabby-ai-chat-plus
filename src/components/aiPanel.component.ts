@@ -496,12 +496,15 @@ export class AIPanelComponent implements OnInit, OnDestroy {
 
     onKeyDown (event: KeyboardEvent): void {
         // Context-switch shortcuts are registered as configurable Tabby hotkeys
-        // (defaults Alt/⌥ + §/1..4) and handled by the decorator. Let those
-        // events bubble to Tabby's HotkeysService instead of consuming them here;
-        // preventDefault keeps the chat field from inserting the (e.g. macOS
-        // Option) character while the hotkey is recognized.
+        // (defaults Alt/⌥ + §/1..4) and handled by the decorator. Let Alt combos
+        // bubble to Tabby's HotkeysService instead of consuming them here. Only
+        // suppress the default for the keys those shortcuts use (digits / § /
+        // backquote) so we don't insert the macOS Option character - Alt+letter
+        // combos must keep typing so Polish diacritics (ą, ć, ę, ł, …) work.
         if (event.altKey) {
-            event.preventDefault()
+            if (/^(Digit\d|IntlBackslash|Backquote)$/.test(event.code)) {
+                event.preventDefault()
+            }
             return
         }
 
