@@ -88,7 +88,7 @@ Be concise and focused on solving terminal-related problems efficiently.`,
         },
         hotkeys: {
             'toggle-ai-panel': ['Ctrl-Shift-A'],
-            'focus-ai-input': ['Ctrl-`'],
+            'focus-ai-input': ['Alt-Tab'],
             'ai-context-none': ['Alt-`'],
             'ai-context-last-command': ['Alt-1'],
             'ai-context-visible': ['Alt-2'],
@@ -101,7 +101,7 @@ Be concise and focused on solving terminal-related problems efficiently.`,
         [Platform.macOS]: {
             hotkeys: {
                 'toggle-ai-panel': ['Cmd-Shift-A'],
-                'focus-ai-input': ['Ctrl-`'],
+                'focus-ai-input': ['⌥-Tab'],
                 'ai-context-none': ['⌥-`'],
                 'ai-context-last-command': ['⌥-1'],
                 'ai-context-visible': ['⌥-2'],

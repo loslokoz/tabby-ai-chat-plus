@@ -512,7 +512,7 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         // backquote) so we don't insert the macOS Option character - Alt+letter
         // combos must keep typing so Polish diacritics (ą, ć, ę, ł, …) work.
         if (event.altKey) {
-            if (/^(Digit\d|IntlBackslash|Backquote)$/.test(event.code)) {
+            if (/^(Digit\d|IntlBackslash|Backquote|Tab)$/.test(event.code)) {
                 event.preventDefault()
             }
             return

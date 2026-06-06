@@ -63,7 +63,18 @@ export class AIAssistantDecorator extends TerminalDecorator {
                 }
 
                 if (hotkey === 'focus-ai-input' && this.panelVisible.get(terminal)) {
-                    this.focusChatInput(terminal)
+                    const panelRef = this.panelRefs.get(terminal)
+                    const hostEl = panelRef?.location.nativeElement as HTMLElement | undefined
+                    if (hostEl?.contains(document.activeElement)) {
+                        // Focus is inside the chat - toggle back to the terminal.
+                        this.focusTerminal(terminal)
+                    } else {
+                        // Focus is in the terminal - jump into the chat with the
+                        // last command's output attached.
+                        panelRef?.instance.setContextMode('lastCommand')
+                        panelRef?.changeDetectorRef.detectChanges()
+                        this.focusChatInput(terminal)
+                    }
                 }
 
                 const contextMode = CONTEXT_HOTKEYS[hotkey]
