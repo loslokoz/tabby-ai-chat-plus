@@ -494,6 +494,16 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges()
     }
 
+    /**
+     * Keep panel keystrokes from leaking to the terminal, but let Alt/⌥ combos
+     * (and the Alt key release) bubble to Tabby's HotkeysService so the
+     * configurable context shortcuts actually fire from inside the panel.
+     */
+    onContainerKey (event: KeyboardEvent): void {
+        if (event.altKey || event.key === 'Alt') { return }
+        event.stopPropagation()
+    }
+
     onKeyDown (event: KeyboardEvent): void {
         // Context-switch shortcuts are registered as configurable Tabby hotkeys
         // (defaults Alt/⌥ + §/1..4) and handled by the decorator. Let Alt combos

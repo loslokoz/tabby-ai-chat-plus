@@ -4,9 +4,9 @@
 .ai-panel-container(
     (click)='$event.stopPropagation()',
     (mousedown)='$event.stopPropagation()',
-    (keydown)='$event.stopPropagation()',
-    (keyup)='$event.stopPropagation()',
-    (keypress)='$event.stopPropagation()'
+    (keydown)='onContainerKey($event)',
+    (keyup)='onContainerKey($event)',
+    (keypress)='onContainerKey($event)'
 )
     .header
         .title
@@ -214,8 +214,8 @@
             #messageInput,
             [(ngModel)]='inputText',
             (keydown)='onKeyDown($event)',
-            (keyup)='$event.stopPropagation()',
-            (keypress)='$event.stopPropagation()',
+            (keyup)='onContainerKey($event)',
+            (keypress)='onContainerKey($event)',
             (focus)='onInputFocus()',
             placeholder='Ask your terminalXS...',
             rows='2',
