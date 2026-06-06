@@ -1,6 +1,6 @@
 {
-  "name": "@ephb/tabby-ai-assistant",
-  "version": "1.0.0",
+  "name": "@lokoz/tabby-ai-chat-plus",
+  "version": "2.0.0",
   "description": "AI Assistant for Tabby - Chat with AI while accessing terminal context",
   "keywords": [
     "tabby-plugin"
@@ -18,16 +18,19 @@
   "files": [
     "dist"
   ],
-  "author": "Philipp Bontemps <philipp@vrtxlabs.com>",
+  "author": "Rafał Basiewicz <rafal@basiewi.cz>",
+  "contributors": [
+    "Philipp Bontemps <philipp@vrtxlabs.com> (original author)"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ephb/tabby-ai-assistant.git"
+    "url": "git+https://github.com/loslokoz/tabby-ai-chat-plus.git"
   },
   "bugs": {
-    "url": "https://github.com/ephb/tabby-ai-assistant/issues"
+    "url": "https://github.com/loslokoz/tabby-ai-chat-plus/issues"
   },
-  "homepage": "https://github.com/ephb/tabby-ai-assistant#readme",
+  "homepage": "https://github.com/loslokoz/tabby-ai-chat-plus#readme",
   "devDependencies": {
     "@angular/animations": "^15.2.10",
     "@angular/common": "^15.2.10",
