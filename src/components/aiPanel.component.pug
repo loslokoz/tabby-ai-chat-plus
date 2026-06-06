@@ -136,6 +136,15 @@
                 .timestamp.text-muted.small {{msg.timestamp | date:'HH:mm'}}
 
             .message-content(*ngIf='!msg.isStreaming')
+                .thinking-block(*ngIf='msg.reasoning')
+                    .thinking-header((click)='msg.showReasoning = !msg.showReasoning')
+                        i.fas.fa-brain.me-1
+                        span Thought process
+                        i.fas.ms-auto(
+                            [class.fa-chevron-down]='!msg.showReasoning',
+                            [class.fa-chevron-up]='msg.showReasoning'
+                        )
+                    pre.thinking-content(*ngIf='msg.showReasoning') {{msg.reasoning}}
                 .markdown-content([innerHTML]='msg.content | aiMarkdown')
                 .command-blocks(*ngIf='msg.role === "assistant" && msg.commands?.length')
                     .command-block(
@@ -160,8 +169,22 @@
                                 i.fas.fa-play
 
             .message-content.streaming(*ngIf='msg.isStreaming && msg.id === currentStreamingId')
+                .thinking-block(*ngIf='currentReasoningContent')
+                    .thinking-header((click)='showStreamingReasoning = !showStreamingReasoning')
+                        i.fas.fa-brain.me-1
+                        span(*ngIf='currentIsThinking') Thinking...
+                        span(*ngIf='!currentIsThinking') Thought process
+                        span.thinking-dots.ms-1(*ngIf='currentIsThinking')
+                            span.dot
+                            span.dot
+                            span.dot
+                        i.fas.ms-auto(
+                            [class.fa-chevron-down]='!showStreamingReasoning',
+                            [class.fa-chevron-up]='showStreamingReasoning'
+                        )
+                    pre.thinking-content(*ngIf='showStreamingReasoning') {{currentReasoningContent}}
                 .markdown-content([innerHTML]='currentStreamingContent | aiMarkdown')
-                .streaming-indicator
+                .streaming-indicator(*ngIf='!currentIsThinking')
                     span.dot
                     span.dot
                     span.dot
@@ -169,6 +192,17 @@
         .empty-state(*ngIf='messages.length === 0')
             i.fas.fa-comments.fa-3x.text-muted.mb-3
             p.text-muted Ask me anything about your terminal session
+
+    .reasoning-bar(*ngIf='canOverrideReasoning')
+        button.reasoning-toggle(
+            (click)='reasoningEnabled = !reasoningEnabled',
+            [class.active]='reasoningEnabled',
+            [title]='reasoningEnabled ? "Reasoning on for this chat — click to turn off" : "Reasoning off (from settings) — click to turn on for this chat"'
+        )
+            i.fas.fa-brain.me-1
+            span Reasoning
+            span.state.ms-1 {{reasoningEnabled ? 'on' : 'off'}}
+        span.hint.text-muted.small.ms-2 Qwen3.5
 
     .input-area
         .loading-indicator(*ngIf='isLoading')

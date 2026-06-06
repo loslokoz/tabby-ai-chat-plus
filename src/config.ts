@@ -14,6 +14,7 @@ export interface AIAssistantConfig {
     litellmEndpoint: string
     litellmApiKey: string
     litellmModel: string
+    disableQwenThinking: boolean
 
     // Behavior
     commandExecution: 'insert' | 'execute' | 'ask'
@@ -49,6 +50,7 @@ export class AIAssistantConfigProvider extends ConfigProvider {
             litellmEndpoint: 'http://localhost:4000/v1',
             litellmApiKey: '',
             litellmModel: '',
+            disableQwenThinking: false,
 
             // Behavior
             commandExecution: 'insert',

@@ -15,6 +15,11 @@ interface ChatMessage {
     isStreaming?: boolean
     attachedContext?: string
     commands?: string[]
+    // Reasoning ("thinking") trace emitted before the answer. Kept separate so
+    // it can be shown in a collapsible block and excluded from command parsing.
+    reasoning?: string
+    isThinking?: boolean
+    showReasoning?: boolean
 }
 
 @Component({
@@ -39,6 +44,11 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     currentStreamingContent = ''
     currentStreamingId = ''
 
+    // Live reasoning state for the message currently streaming
+    currentReasoningContent = ''
+    currentIsThinking = false
+    showStreamingReasoning = false
+
     // Keyboard navigation over the generated commands of one assistant message
     commandNavMessageId = ''
     selectedCommandIndex = 0
@@ -48,6 +58,10 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     contextLines = 50
     attachedContext = ''
     showContextPreview = false
+
+    // Per-conversation override that re-enables reasoning for Qwen3.5 models
+    // when it is globally disabled in settings (see canOverrideReasoning).
+    reasoningEnabled = false
 
     // Model picker
     availableModels: ModelInfo[] = []
@@ -216,6 +230,9 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         this.messages.push(assistantMsg)
         this.currentStreamingId = assistantMsg.id
         this.currentStreamingContent = ''
+        this.currentReasoningContent = ''
+        this.currentIsThinking = false
+        this.showStreamingReasoning = false
         this.cdr.detectChanges()
         this.scrollToBottom()
 
@@ -277,12 +294,20 @@ export class AIPanelComponent implements OnInit, OnDestroy {
             apiMessages.push({ role: msg.role, content })
         }
 
-        const body = {
+        const body: Record<string, unknown> = {
             model: this.modelProvider.currentModel,
             messages: apiMessages,
             max_tokens: aiConfig.maxTokens || 2048,
             temperature: aiConfig.temperature || 0.7,
             stream: true,
+        }
+
+        // Disable reasoning for Qwen3.5-family models on a self-hosted endpoint.
+        // Qwen3.5 thinks by default and exposes no /no_think soft switch; the
+        // OpenAI-compatible way (vLLM/SGLang) is chat_template_kwargs.enable_thinking.
+        // See https://huggingface.co/Qwen/Qwen3.5-122B-A10B
+        if (this.canOverrideReasoning && !this.reasoningEnabled) {
+            body.chat_template_kwargs = { enable_thinking: false }
         }
 
         const response = await fetch(endpoint, {
@@ -315,6 +340,19 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         const decoder = new TextDecoder()
         let buffer = ''
 
+        // Raw accumulators: `rawContent` is the model's `content` (may carry
+        // inline <think>...</think>), `reasoningField` is the separate
+        // `reasoning_content` some endpoints emit. Both feed the split below.
+        let rawContent = ''
+        let reasoningField = ''
+
+        // Some chat templates (e.g. Qwen3.5) open the <think> block implicitly,
+        // so the opening tag never reaches the stream - only the closing
+        // </think> does. When we expect reasoning, assume the block is open from
+        // the start so the trace is shown as thinking (not leaked into the
+        // answer) until </think> arrives.
+        const expectThinking = this.expectsThinking
+
         try {
             while (true) {
                 const { done, value } = await reader.read()
@@ -335,14 +373,25 @@ export class AIPanelComponent implements OnInit, OnDestroy {
 
                     try {
                         const parsed = JSON.parse(data)
-                        const delta = parsed.choices?.[0]?.delta?.content
-                        if (delta) {
-                            this.currentStreamingContent += delta
-                            assistantMsg.content = this.currentStreamingContent
-                            this.cdr.detectChanges()
-                            this.scrollToBottom()
-                            await new Promise(resolve => setTimeout(resolve, 0))
-                        }
+                        const delta = parsed.choices?.[0]?.delta
+                        const piece: string | undefined = delta?.content
+                        const reasoningPiece: string | undefined = delta?.reasoning_content ?? delta?.reasoning
+                        if (!piece && !reasoningPiece) { continue }
+
+                        if (reasoningPiece) { reasoningField += reasoningPiece }
+                        if (piece) { rawContent += piece }
+
+                        const { thinking, answer } = this.splitThinking(rawContent, reasoningField, expectThinking)
+                        this.currentReasoningContent = thinking
+                        this.currentStreamingContent = answer
+                        this.currentIsThinking = !!thinking && !answer.trim()
+                        assistantMsg.reasoning = thinking || undefined
+                        assistantMsg.content = answer
+                        assistantMsg.isThinking = this.currentIsThinking
+
+                        this.cdr.detectChanges()
+                        this.scrollToBottom()
+                        await new Promise(resolve => setTimeout(resolve, 0))
                     } catch {
                         // Skip malformed JSON chunks
                     }
@@ -352,15 +401,65 @@ export class AIPanelComponent implements OnInit, OnDestroy {
             reader.releaseLock()
         }
 
-        // Finalize message
-        assistantMsg.content = this.currentStreamingContent
+        this.finalizeAssistantMessage(assistantMsg, rawContent, reasoningField, expectThinking)
+    }
+
+    private finalizeAssistantMessage (assistantMsg: ChatMessage, rawContent: string, reasoningField: string, expectThinking: boolean): void {
+        const final = this.splitThinking(rawContent, reasoningField, expectThinking)
+        assistantMsg.content = final.answer
+        assistantMsg.reasoning = final.thinking || undefined
+        assistantMsg.isThinking = false
+        assistantMsg.showReasoning = this.showStreamingReasoning
         assistantMsg.isStreaming = false
+        // Commands are parsed only from the answer, never the thinking trace, so
+        // anything the model "thought" of stays out of the executable list.
         assistantMsg.commands = this.extractCommands(assistantMsg.content)
         this.currentStreamingId = ''
         this.currentStreamingContent = ''
+        this.currentReasoningContent = ''
+        this.currentIsThinking = false
         this.isLoading = false
         this.cdr.detectChanges()
         this.activateCommandNav(assistantMsg)
+    }
+
+    /**
+     * Separate a reasoning ("thinking") trace from the actual answer.
+     *
+     * Two transports are supported: a dedicated `reasoning_content` field
+     * (`reasoningField`) and inline `<think>...</think>` tags inside the
+     * content. Some chat templates open the think block implicitly, so a
+     * closing `</think>` with no opener still marks everything before it as
+     * thinking. When `assumeOpen` is set, content with no tags at all is treated
+     * as thinking too (for templates that open <think> implicitly).
+     */
+    private splitThinking (raw: string, reasoningField: string, assumeOpen = false): { thinking: string; answer: string } {
+        let inlineThinking = ''
+        let answer = raw
+
+        const close = raw.indexOf('</think>')
+        if (close !== -1) {
+            const open = raw.indexOf('<think>')
+            const start = open === -1 ? 0 : open + '<think>'.length
+            inlineThinking = raw.slice(start, close)
+            answer = raw.slice(close + '</think>'.length)
+        } else {
+            const open = raw.indexOf('<think>')
+            if (open !== -1) {
+                inlineThinking = raw.slice(open + '<think>'.length)
+                answer = ''
+            } else if (assumeOpen && raw) {
+                inlineThinking = raw
+                answer = ''
+            }
+        }
+
+        const thinking = [reasoningField, inlineThinking]
+            .map(s => s.trim())
+            .filter(Boolean)
+            .join('\n')
+
+        return { thinking, answer }
     }
 
     cancelRequest (): void {
@@ -371,13 +470,16 @@ export class AIPanelComponent implements OnInit, OnDestroy {
         this.isLoading = false
         this.currentStreamingId = ''
         this.currentStreamingContent = ''
+        this.currentReasoningContent = ''
+        this.currentIsThinking = false
 
         // Mark any streaming message as complete
         for (const msg of this.messages) {
             if (msg.isStreaming) {
                 msg.isStreaming = false
+                msg.isThinking = false
                 if (!msg.content) {
-                    msg.content = '(cancelled)'
+                    msg.content = msg.reasoning ? '(stopped while thinking)' : '(cancelled)'
                 }
             }
         }
@@ -605,6 +707,29 @@ export class AIPanelComponent implements OnInit, OnDestroy {
 
     private generateId (): string {
         return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+    }
+
+    /**
+     * Whether the per-chat reasoning toggle is relevant: reasoning is globally
+     * disabled for Qwen3.5 on a self-hosted endpoint, so the user may want to
+     * re-enable it for the current conversation.
+     */
+    get canOverrideReasoning (): boolean {
+        return this.modelProvider.currentProvider === 'litellm' &&
+            (this.config.store.aiAssistant?.disableQwenThinking ?? false) &&
+            /qwen3\.?5/i.test(this.modelProvider.currentModel)
+    }
+
+    /**
+     * Whether the next request should expect a reasoning trace. True for
+     * Qwen3.5 unless thinking was actively disabled for this chat (i.e. we sent
+     * enable_thinking=false). Used to treat an implicitly-opened <think> block
+     * as thinking before its closing tag arrives.
+     */
+    private get expectsThinking (): boolean {
+        if (!/qwen3\.?5/i.test(this.modelProvider.currentModel)) { return false }
+        const thinkingDisabled = this.canOverrideReasoning && !this.reasoningEnabled
+        return !thinkingDisabled
     }
 
     get contextModeLabel (): string {

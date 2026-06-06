@@ -121,6 +121,15 @@ h3 AI Assistant
                     i.fas.fa-sync-alt.me-1([class.fa-spin]='isLoadingLitellmModels')
                     | Fetch Models
 
+    .form-line
+        .header
+            .title Disable reasoning for Qwen3.5
+            .description Send chat_template_kwargs.enable_thinking=false for Qwen3.5-family models so they answer without thinking
+        toggle(
+            [(ngModel)]='config.store.aiAssistant.disableQwenThinking',
+            (ngModelChange)='config.save()'
+        )
+
 // Quick Access Models
 h4.mt-4.mb-3 Quick Access Models
 
