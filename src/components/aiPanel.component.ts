@@ -5,7 +5,7 @@ import { Frontend } from 'tabby-terminal'
 import { TerminalContextService } from '../services/terminalContext.service'
 import { ModelProviderService, ModelInfo } from '../services/modelProvider.service'
 
-type ContextMode = 'none' | 'visible' | 'lastN' | 'lastCommand' | 'selection'
+export type ContextMode = 'none' | 'visible' | 'lastN' | 'lastCommand' | 'selection'
 
 interface ChatMessage {
     id: string
@@ -393,6 +393,16 @@ export class AIPanelComponent implements OnInit, OnDestroy {
     }
 
     onKeyDown (event: KeyboardEvent): void {
+        // Context-switch shortcuts are registered as configurable Tabby hotkeys
+        // (defaults Alt/⌥ + §/1..4) and handled by the decorator. Let those
+        // events bubble to Tabby's HotkeysService instead of consuming them here;
+        // preventDefault keeps the chat field from inserting the (e.g. macOS
+        // Option) character while the hotkey is recognized.
+        if (event.altKey) {
+            event.preventDefault()
+            return
+        }
+
         // Prevent terminal from capturing keystrokes
         event.stopPropagation()
 
@@ -408,23 +418,6 @@ export class AIPanelComponent implements OnInit, OnDestroy {
                 this.cancelRequest()
             } else {
                 this.close()
-            }
-        }
-
-        // Option+§/1..4 — switch context mode (event.code — Option changes event.key on macOS)
-        if (event.altKey) {
-            const contextByCode: Partial<Record<string, ContextMode>> = {
-                IntlBackslash: 'none',
-                Digit1: 'lastCommand',
-                Digit2: 'visible',
-                Digit3: 'selection',
-                Digit4: 'lastN',
-            }
-            const mode = contextByCode[event.code]
-            if (mode) {
-                event.preventDefault()
-                this.setContextMode(mode)
-                this.cdr.detectChanges()
             }
         }
     }

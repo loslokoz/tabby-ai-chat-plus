@@ -17,6 +17,26 @@ export class AIAssistantHotkeyProvider extends HotkeyProvider {
                 id: 'focus-ai-input',
                 name: this.translate.instant('Focus AI Assistant input'),
             },
+            {
+                id: 'ai-context-none',
+                name: this.translate.instant('AI context: none'),
+            },
+            {
+                id: 'ai-context-last-command',
+                name: this.translate.instant('AI context: last command output'),
+            },
+            {
+                id: 'ai-context-visible',
+                name: this.translate.instant('AI context: visible terminal'),
+            },
+            {
+                id: 'ai-context-selection',
+                name: this.translate.instant('AI context: selection'),
+            },
+            {
+                id: 'ai-context-last-n',
+                name: this.translate.instant('AI context: last N lines'),
+            },
         ]
     }
 }

@@ -2,8 +2,17 @@ import { Injectable, ComponentRef, Injector, ApplicationRef, createComponent, En
 import { take, Subscription } from 'rxjs'
 import { HotkeysService, ConfigService } from 'tabby-core'
 import { TerminalDecorator, BaseTerminalTabComponent } from 'tabby-terminal'
-import { AIPanelComponent } from '../components/aiPanel.component'
+import { AIPanelComponent, ContextMode } from '../components/aiPanel.component'
 import { CommandTrackerService } from '../services/commandTracker.service'
+
+/** Tabby hotkey id -> chat context mode it selects. */
+const CONTEXT_HOTKEYS: Partial<Record<string, ContextMode>> = {
+    'ai-context-none': 'none',
+    'ai-context-last-command': 'lastCommand',
+    'ai-context-visible': 'visible',
+    'ai-context-selection': 'selection',
+    'ai-context-last-n': 'lastN',
+}
 
 /**
  * Decorator that attaches the AI Assistant panel to terminal tabs.
@@ -55,6 +64,11 @@ export class AIAssistantDecorator extends TerminalDecorator {
 
                 if (hotkey === 'focus-ai-input' && this.panelVisible.get(terminal)) {
                     this.focusChatInput(terminal)
+                }
+
+                const contextMode = CONTEXT_HOTKEYS[hotkey]
+                if (contextMode) {
+                    this.applyContextHotkey(terminal, contextMode)
                 }
             }),
         )
@@ -195,6 +209,22 @@ export class AIAssistantDecorator extends TerminalDecorator {
                 frontend.resizeHandler()
             }
         }, 100)
+    }
+
+    /**
+     * Switch the chat context mode in response to a context hotkey. Scoped to
+     * the terminal whose chat input currently holds focus so the shortcut only
+     * fires for the panel the user is actually typing in (and never the wrong
+     * panel when several terminals are open).
+     */
+    private applyContextHotkey (terminal: BaseTerminalTabComponent<any>, mode: ContextMode): void {
+        if (!this.panelVisible.get(terminal)) { return }
+        const panelRef = this.panelRefs.get(terminal)
+        if (!panelRef) { return }
+        const hostEl = panelRef.location.nativeElement as HTMLElement
+        if (!hostEl.contains(document.activeElement)) { return }
+        panelRef.instance.setContextMode(mode)
+        panelRef.changeDetectorRef.detectChanges()
     }
 
     private focusChatInput (terminal: BaseTerminalTabComponent<any>): void {

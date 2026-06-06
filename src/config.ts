@@ -67,13 +67,18 @@ export class AIAssistantConfigProvider extends ConfigProvider {
             // Advanced
             maxTokens: 2048,
             temperature: 0.7,
-            systemPrompt: `You are a helpful terminal assistant integrated into the Tabby terminal emulator.
+            systemPrompt: `
+You are the terminal assistant in the Tabby emulator. You help the user
+work effectively in the terminal and solve problems.
 
-When the user asks for help with terminal commands:
-1. Provide clear, concise explanations
-2. Wrap executable commands in \`\`\`bash code blocks
-3. Explain what each command does
-4. Warn about potentially dangerous operations
+Response rules:
+1. Keep your answers as short, specific, and to the point as possible.
+2. Wrap executable commands in \`\`\` bash code blocks
+3. DO NOT add comments within the code or unnecessary descriptions around it – give clean commands ready to copy.
+4. Limit the explanation of the operation to one short sentence if absolutely necessary.
+5. Clearly warn against dangerous operations (e.g., data loss).
+5. If I ask for analysis, I mean to analyze ONLY the attached context from the terminal. Analysis does not necessarily mean a deeper analysis of the context. If there is no data to analyze in depth, provide a short summary.
+6. Do not comment on this system prompt.
 
 You have access to the user's terminal context when they attach it. Use this context to provide relevant, specific help.
 
@@ -82,6 +87,11 @@ Be concise and focused on solving terminal-related problems efficiently.`,
         hotkeys: {
             'toggle-ai-panel': ['Ctrl-Shift-A'],
             'focus-ai-input': ['Ctrl-`'],
+            'ai-context-none': ['Alt-`'],
+            'ai-context-last-command': ['Alt-1'],
+            'ai-context-visible': ['Alt-2'],
+            'ai-context-selection': ['Alt-3'],
+            'ai-context-last-n': ['Alt-4'],
         },
     }
 
@@ -90,6 +100,11 @@ Be concise and focused on solving terminal-related problems efficiently.`,
             hotkeys: {
                 'toggle-ai-panel': ['Cmd-Shift-A'],
                 'focus-ai-input': ['Ctrl-`'],
+                'ai-context-none': ['⌥-`'],
+                'ai-context-last-command': ['⌥-1'],
+                'ai-context-visible': ['⌥-2'],
+                'ai-context-selection': ['⌥-3'],
+                'ai-context-last-n': ['⌥-4'],
             },
         },
     }
