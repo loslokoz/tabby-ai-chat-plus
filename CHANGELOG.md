@@ -7,10 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2026-06-07
 
-A major rework focused on a **fully keyboard-driven workflow**, **multiple
-providers at once**, and **reasoning support**. The plugin is now named
-**AI Assistant Plus** and published as the unscoped package `tabby-ai-chat-plus`
-so it appears in Tabby's plugin list.
+A major rework focused on a **fully keyboard-driven workflow**, **multiple providers at once**, and **reasoning support**. The plugin is now named **AI Assistant Plus** and published as the unscoped package `tabby-ai-chat-plus` so it appears in Tabby's plugin list.
 
 ### Keyboard-driven workflow
 - Configurable context shortcuts — switch the attached context with `Alt`/`⌥` + `` ` ``/`1`/`2`/`3`/`4` (none / last command / visible / selection / last N). Editable in *Settings → Hotkeys*.
