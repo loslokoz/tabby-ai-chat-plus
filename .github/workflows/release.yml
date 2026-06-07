@@ -8,18 +8,22 @@ on:
 permissions:
   contents: write
 
+# Run any JS actions still bundling Node 20 on Node 24 (e.g. action-gh-release).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   release:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
