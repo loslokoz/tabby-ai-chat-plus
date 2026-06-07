@@ -24,7 +24,7 @@ Ask questions, attach terminal context, and run AI-suggested commands without ev
 # Install to Tabby's plugin directory
 cd ~/.config/tabby/plugins  # Linux/macOS
 cd %APPDATA%\tabby\plugins   # Windows
-npm install @lokoz/tabby-ai-chat-plus
+npm install tabby-ai-chat-plus
 ```
 
 ## Configuration
@@ -77,7 +77,7 @@ All shortcuts are configurable in **Settings** > **Hotkeys**.
 |--------|-------------------------|-----------------|
 | Toggle AI panel | `Ctrl+Shift+A` | `Cmd+Shift+A` |
 | Toggle focus terminal ↔ chat | `Alt+Tab` | `⌥+Tab` |
-| Context: none | `Alt+`` ` `` | `⌥+`` ` `` |
+| Context: none | `Alt+\` ` | `⌥+§` |
 | Context: last command output | `Alt+1` | `⌥+1` |
 | Context: visible terminal | `Alt+2` | `⌥+2` |
 | Context: current selection | `Alt+3` | `⌥+3` |
@@ -91,7 +91,7 @@ All shortcuts are configurable in **Settings** > **Hotkeys**.
 
 ### Switching context from the keyboard
 
-While the chat input is focused, use the context shortcuts above to change what gets attached to your next message. The attachment indicator and preview update immediately. (`Alt`/`⌥` + a letter still types normally, so accented characters such as Polish diacritics are unaffected.)
+While the chat input is focused, use the context shortcuts above to change what gets attached to your next message. The attachment indicator and preview update immediately.
 
 ### Navigating and running suggested commands
 
