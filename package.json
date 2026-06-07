@@ -1,6 +1,6 @@
 {
   "name": "tabby-ai-chat-plus",
-  "version": "2.0.1",
+  "version": "2.0.0",
   "description": "Keyboard-driven AI chat panel for Tabby - attach terminal context, switch context, navigate and run AI-suggested commands without leaving the keyboard. Supports OpenRouter and custom OpenAI-compatible endpoints.",
   "keywords": [
     "tabby-plugin"
